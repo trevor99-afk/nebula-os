@@ -1,0 +1,4 @@
+# NebulaOS: explain how to choose a mode on the login screen.
+[org/gnome/login-screen]
+banner-message-enable=true
+banner-message-text='Choose your mode: select your name, then click the gear button at the bottom right and pick NebulaOS Gaming Mode or NebulaOS Work Mode. Your last choice is remembered.'

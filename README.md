@@ -4,151 +4,92 @@
 
 # NebulaOS
 
-A Linux distribution with two sides: one for **gaming**, one for **development and work**.
+**One operating system. Two worlds.** A Linux distribution with a **Gaming Mode** and a **Work Mode**: you choose one every time you log in.
 
-NebulaOS is built on [Bazzite DX](https://dev.bazzite.gg), so it keeps everything Bazzite provides (Steam, Proton, Gamescope, MangoHud, a gaming-tuned kernel, fresh graphics drivers, automatic updates and one-step rollback) and adds its own identity, apps and tools.
+NebulaOS is built on [Bazzite DX](https://dev.bazzite.gg), so it keeps everything Bazzite provides (Steam, Proton, Gamescope, MangoHud, a gaming-tuned kernel, fresh graphics drivers, automatic updates and one-step rollback). On top, it adds its own tools and identity, and does not rebuild what Bazzite already does well.
 
-## The two sides
+> **Status:** testing. The image builds, is signed and passes 40 automated image tests. It has not yet been booted on real hardware. See [what is verified](docs/NEBULAOS_TECHNICAL_AUDIT.md#unverified-needs-a-real-boot).
 
-| | Gaming side | Work side |
+## The two modes
+
+| | NebulaOS Gaming Mode | NebulaOS Work Mode |
 | --- | --- | --- |
-| What it is | **Steam Gaming Mode**: full-screen Steam, made for controllers, like a Steam Deck or console | **GNOME desktop** for coding and everyday work |
-| Apps | Steam library, plus Heroic, Bottles, RetroArch, Dolphin and PCSX2 once added to Steam | VS Code, Docker (with Compose and Buildx), Podman, Distrobox, Homebrew, virtual machines (virt-manager), Android tools |
-| App store | Steam store | **Bazaar**, with a NebulaOS "Development & Work" section |
-| Switch to the other side | Steam menu › Power › **Switch to Desktop** | **Switch to Gaming Mode** in the dock |
+| What it is | Steam Gaming Mode: full screen, made for controllers | GNOME desktop for coding and everyday work |
+| Apps | Steam library (other launchers via **Add to Steam**) | VS Code, Docker, Podman, Distrobox, Homebrew, virtual machines, Android tools |
+| App store | Steam store | **Bazaar**, with a NebulaOS *Development & Work* section |
+| Switch | Steam menu › Power › **Switch to Desktop** | **Switch to Gaming Mode** in the dock |
 
-Both sides start from the login screen and need your password. The login screen remembers the side you used last; choose the other one with the gear button next to **Sign In**, or run `ujust nebula-side gaming` (or `work`).
+On the login screen: select your user, click the **gear button** and pick a mode. Your last choice is remembered. `ujust nebula-mode gaming` or `ujust nebula-mode work` sets it from a terminal.
 
-Also included on both sides:
+## What NebulaOS adds
 
-- **NebulaOS identity**: its name in the boot menu, Settings › About and the terminal welcome message, plus its own logo and wallpapers.
-- **App bundle** (installed from Flathub after the first boot, a few gigabytes): Heroic Games Launcher, Bottles, OBS Studio, Vesktop (Discord), MangoJuice (FPS overlay settings), RetroArch, Dolphin and PCSX2.
-- **FPS overlay preset**: `ujust nebula-fps-overlay on`.
-- **Signed updates**: every published build is signed with your key, and systems can refuse anything you didn't sign.
+- **`nebula` tool**, the foundation of the Nebula Control Center:
+  - `nebula status`: live CPU, GPU, memory, storage, network, temperatures, power profile, updates and health
+  - `nebula hw`: **Hardware Detection Engine.** GPUs (AMD, Intel, NVIDIA backends), architecture, Vulkan, OpenGL and video acceleration verified by real probes, hybrid graphics, and each display's mode, refresh range, **VRR** and **HDR**. Every feature is reported at five levels: hardware, driver, available, enabled, verified.
+  - `nebula doctor`: **System Doctor.** 12 checks with suggested fixes; it never changes anything.
+  - `nebula update check|history|apply|rollback`: updates, with confirmation before any change
+  - Every command has `--json` output.
+- **App bundle** from Flathub: Heroic, Bottles, OBS Studio, Vesktop, MangoJuice, RetroArch, Dolphin, PCSX2.
+- **FPS overlay preset** (`ujust nebula-fps-overlay on`).
+- **Identity:** name in the boot menu and Settings › About, logo, wallpapers, login mode names.
+- **Signed images** with your own key, verified in CI before publication.
 
-## How it works
+The planned **Nebula Control Center, Gaming Optimizer, Display Lab, Dev Hub and AI Hub** are on the [roadmap](docs/ROADMAP.md).
 
-NebulaOS is an *image-based* (atomic) OS: the whole system is one container image. The `Containerfile` starts from Bazzite DX's image and runs the scripts in `build_files/`. The result is installed as a single unit, and the previous version is kept, so a bad update is undone with one reboot.
+## Install
 
-```
-Bazzite DX image ─► Containerfile + build_files/ + system_files/ ─► NebulaOS image
-                                                                        │
-                  GitHub Actions builds and signs it every day ─► ghcr.io ─► your PCs update from there
-```
-
-## Install it on a computer running Bazzite (or another bootc system)
-
-```bash
-sudo bootc switch ghcr.io/trevor99-afk/nebula-os:latest
-systemctl reboot
-# after the reboot: only accept builds signed with the project's key
-ujust nebula-enable-signed-updates
-systemctl reboot
-```
-
-Your files, settings and apps stay; only the operating system changes. To go back, pick the previous entry in the boot menu, or run `sudo bootc rollback` and reboot. `ujust nebula-switch-to-bazzite` returns to stock Bazzite DX.
-
-If you installed VS Code with Homebrew before, remove that copy so you don't have two: `brew uninstall --cask visual-studio-code-linux` (your settings and extensions stay).
-
-**Docker:** on first boot, administrator accounts are added to the `docker` and `libvirt` groups automatically. Log out and back in (or reboot) once before using `docker` without `sudo`.
-
-## Build and test locally
-
-You need about 30 GB of free disk space. The first build downloads Bazzite DX (about 7 GB).
+Install [Bazzite](https://bazzite.gg) first, then switch to NebulaOS. Verify the image signature before switching:
 
 ```bash
-cd ~/Projects/nebula-os
-just build              # builds localhost/nebula-os:latest
-just switch-local       # switch this computer to it (asks for your password), then reboot
+curl -fsSLO https://raw.githubusercontent.com/trevor99-afk/nebula-os/main/cosign.pub
+cosign verify --key cosign.pub ghcr.io/trevor99-afk/nebula-os:latest
+sudo bootc switch ghcr.io/trevor99-afk/nebula-os:latest   # NVIDIA: nebula-os-nvidia
+systemctl reboot
+ujust nebula-enable-signed-updates                        # after the reboot, then reboot again
 ```
 
-Optionally test it in a virtual machine first: `just build-qcow2`, then `just run-vm`.
+Your files and apps stay; the previous system remains in the boot menu. Full guide: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
-## Publishing (GitHub)
+| Edition | Image |
+| --- | --- |
+| AMD / Intel graphics | `ghcr.io/trevor99-afk/nebula-os` |
+| NVIDIA graphics (untested on hardware) | `ghcr.io/trevor99-afk/nebula-os-nvidia` |
 
-1. A public GitHub repository named `nebula-os`, with your username in `REPO_ORGANIZATION` in `image-template.env`.
-2. The repository secret `SIGNING_SECRET` contains `cosign.key` (the private signing key, ignored by git). Never commit or share `cosign.key`; keep a backup somewhere safe, such as a password manager.
-3. Every push to `main`, and a daily scheduled run, builds, signs and publishes `ghcr.io/<github-user>/nebula-os`. Watch it in the repository's **Actions** tab (about 20 minutes).
-4. First time only: make the image public. On GitHub, open your profile › **Packages** › `nebula-os` › **Package settings** › **Change visibility** › **Public**.
-
-### Installer ISO
-
-On GitHub, open **Actions › Build disk images › Run workflow**, then download `nebula-os-anaconda-iso` from the run's **Artifacts**. Bazzite DX itself is normally installed by switching from Bazzite rather than from an ISO, so the simplest route for a new PC is: install [Bazzite](https://bazzite.gg), then run the `bootc switch` command above.
-
-**Secure Boot:** Bazzite's kernel is signed with Universal Blue's key. On a PC with Secure Boot on, turn it off before installing; after the first boot run `ujust enroll-secure-boot-key`, reboot, choose **Enroll MOK**, enter `universalblue`, and turn Secure Boot back on.
+Channels: `:latest` (stable, branch `main`) and `:testing` (branch `dev`).
 
 ## Everyday commands
 
-NebulaOS adds these to Bazzite's `ujust` menu (run `ujust` to see everything):
-
 | Command | What it does |
 | --- | --- |
-| `ujust nebula-side gaming` / `work` | Choose the side to start at the next login (add `now` to switch right away) |
-| `ujust nebula-info` | Version, update source, and which bundled apps are installed |
-| `ujust nebula-install-apps` | Install the app bundle now (also restores bundled apps you removed) |
-| `ujust nebula-fps-overlay on` | Install the FPS overlay preset (`off` and `status` work too) |
-| `ujust nebula-enable-signed-updates` | Only accept updates signed with your key |
+| `ujust nebula-mode gaming` / `work` | Choose the mode started at login (add `now` to switch right away) |
+| `ujust nebula-info` | Version, live status and the app bundle |
+| `ujust nebula-doctor` | Check the system and suggest fixes |
+| `ujust nebula-hw` | Hardware and display capability report |
+| `ujust nebula-install-apps` | Install the app bundle now |
+| `ujust nebula-fps-overlay on` | FPS overlay preset (`off`, `status`) |
+| `ujust nebula-enable-signed-updates` | Only accept updates signed with the NebulaOS key |
 | `ujust nebula-switch-to-bazzite` | Go back to stock Bazzite DX |
 
-**Games from other launchers in Gaming Mode:** on the work side, right-click an app (Heroic, RetroArch, Dolphin, PCSX2) in the app grid and choose **Add to Steam**. Heroic can also add individual games to Steam from each game's settings.
+Updates install automatically in the background (Bazzite's updater) and apply on the next restart.
 
-**FPS overlay:** after `ujust nebula-fps-overlay on`, add `mangohud %command%` to a Steam game's Launch Options (right-click the game › Properties). Press Right Shift + F12 in game to show or hide it. In Gaming Mode, Steam's own performance overlay is in the Quick Access menu.
+## Documentation
 
-**Updates** download automatically in the background and apply on the next reboot. Run `ujust update` to update right away.
+[Installation](docs/INSTALLATION.md) · [Hardware compatibility](docs/HARDWARE_COMPATIBILITY.md) · [Gaming](docs/GAMING.md) · [Development](docs/DEVELOPMENT.md) · [AI](docs/AI.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Technical audit](docs/NEBULAOS_TECHNICAL_AUDIT.md) · [Roadmap](docs/ROADMAP.md) · [Release process](docs/RELEASE_PROCESS.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
-## Customize
+## Building it yourself
 
-| To change | Edit |
-| --- | --- |
-| Name, GitHub account, base image | `image-template.env` |
-| Bundled apps (Flatpaks) | `system_files/usr/share/nebula-os/flatpaks.list` |
-| Bazaar's Development & Work section | `build_files/bazaar-dev-work.yaml` |
-| Extra system packages (RPMs) | `build_files/20-packages.sh` |
-| Dock apps and wallpaper defaults | `system_files/usr/share/glib-2.0/schemas/zz1-nebula-os.gschema.override` |
-| Wallpapers, logo | `system_files/usr/share/backgrounds/nebula-os/`, `system_files/usr/share/icons/hicolor/scalable/apps/` |
-| Your own `ujust` commands | `system_files/usr/share/ublue-os/just/60-custom.just` |
-| Any other file in the OS | Add it under `system_files/` (copied to `/` in the image) |
-
-Put files under `/usr` (programs and data) or `/etc` (configuration). Files placed in `/var` or `/home` in the image are not updated on installed systems. After a change, commit and push: GitHub builds the new version and your computers pick it up with their next update.
-
-### Editions
-
-Change `BASE_IMAGE` in `image-template.env`:
-
-| Edition | `BASE_IMAGE` |
-| --- | --- |
-| Two sides, AMD or Intel graphics (default) | `ghcr.io/ublue-os/bazzite-dx-gnome:stable` |
-| Two sides, NVIDIA graphics | `ghcr.io/ublue-os/bazzite-dx-nvidia-gnome:stable` |
-| Desktop only (no Gaming Mode, no developer tools) | `ghcr.io/ublue-os/bazzite-gnome:stable` |
-
-## Project layout
-
-```
-Containerfile            the recipe: Bazzite DX + build_files/
-image-template.env       settings: name, GitHub account, base image
-Justfile                 build, test and install commands (run `just` to list them)
-build_files/
-  build.sh               copies system_files/ and runs the numbered steps
-  10-branding.sh         name, boot menu entry, hostname, welcome message
-  15-bazaar.sh           adds the Development & Work section to Bazaar
-  20-packages.sh         extra RPM packages
-  30-services.sh         turns on NebulaOS services
-  40-signing.sh          signature policy for your images
-  90-finalize.sh         rebuilds the settings and icon caches
-system_files/            copied into the image as-is (side switcher, app bundle, artwork, ujust commands)
-disk_config/             ISO and virtual machine disk settings
-.github/workflows/       daily build and sign; ISO and VM images
-cosign.pub               public signing key (cosign.key is private and git-ignored)
+```bash
+just build && just test-image   # build and test localhost/nebula-os:latest
+just switch-local               # switch this computer to it
 ```
 
-## Troubleshooting
+Settings (name, GitHub account, base image) live in `image-template.env`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-- **Gaming Mode shows a black screen.** Some PCs with two graphics chips have trouble with Gaming Mode. Reboot, choose the GNOME session with the gear button on the login screen, and play from the desktop Steam app. `ujust nebula-side work` makes the desktop the default again.
-- **"Switch to Desktop" does nothing in Gaming Mode.** Restart from Steam's Power menu and pick the GNOME session on the login screen. Then `journalctl --user -b | grep -i session-select` shows what went wrong.
-- **The bundled apps didn't appear.** They download in the background after the first boot and need internet. Check with `ujust nebula-info`, read the log with `journalctl -u nebula-os-flatpak-setup`, or install them now with `ujust nebula-install-apps`.
-- **Switching or updating fails with "unauthorized" or "denied".** The package on ghcr.io is still private; make it public (Publishing, step 4).
-- **"Sign container image" fails on GitHub.** The `SIGNING_SECRET` secret is missing or doesn't match `cosign.pub`.
-- **Bazzite's `ujust rollback-helper`** switches to official Bazzite images, not NebulaOS. To undo a NebulaOS update, use the boot menu or `sudo bootc rollback`.
+## Known limitations
+
+- Not yet booted on real hardware; the ISO installer is untested.
+- Steam Gaming Mode can show a black screen on some dual-GPU laptops. Work Mode always works.
+- The NVIDIA edition is untested on NVIDIA hardware.
 
 ## Credits
 

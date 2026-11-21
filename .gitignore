@@ -11,3 +11,6 @@ _build-*/**
 previous.manifest.json
 changelog.md
 output.env
+
+# Python bytecode
+__pycache__/

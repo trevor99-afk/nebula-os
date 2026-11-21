@@ -6,3 +6,4 @@ output
 _build*
 *_chunkah_*
 *_rpm-ostree_*
+**/__pycache__

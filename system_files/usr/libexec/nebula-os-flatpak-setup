@@ -64,7 +64,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     fi
 
     echo "Installing $app ..."
-    if flatpak install --system --noninteractive --or-update flathub "$app"; then
+    # Updates are left to Bazzite's updater (uupd), so this only installs.
+    if flatpak install --system --noninteractive flathub "$app"; then
         remember "$app"
     else
         echo "Could not install $app; will retry later." >&2

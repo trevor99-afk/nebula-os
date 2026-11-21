@@ -1,16 +1,13 @@
 # vim: set ft=make :
 # NebulaOS commands. Run `ujust` to list everything, e.g. `ujust nebula-info`.
 
-# Show NebulaOS version, where updates come from, and which bundled apps are installed
+alias nebula-side := nebula-mode
+
+# Show NebulaOS version, live system status and which bundled apps are installed
 [group("NebulaOS")]
 nebula-info:
     #!/usr/bin/bash
-    source /usr/lib/os-release
-    echo "${PRETTY_NAME} (built on Bazzite, Fedora ${VERSION_ID})"
-    echo "Updates from: $(cat /usr/share/nebula-os/image-ref)"
-    echo "Built on:     $(cat /usr/share/nebula-os/base-image)"
-    echo
-    rpm-ostree status --booted
+    nebula status
     echo
     echo "App bundle (/usr/share/nebula-os/flatpaks.list):"
     grep -oE '^[^#[:space:]]+' /usr/share/nebula-os/flatpaks.list | while read -r app; do
@@ -23,25 +20,35 @@ nebula-info:
     echo
     echo "Install missing apps with: ujust nebula-install-apps"
 
-# Choose the side to start at login: gaming | work | status (add "now" to switch right away)
+# Check the system for common problems and suggest fixes (changes nothing)
 [group("NebulaOS")]
-nebula-side SIDE="" NOW="":
+nebula-doctor:
+    nebula doctor
+
+# Hardware and capability report: GPUs, drivers, Vulkan, video acceleration, displays, VRR, HDR
+[group("NebulaOS")]
+nebula-hw:
+    nebula hw
+
+# Choose the mode started at login: gaming | work | status (add "now" to switch right away)
+[group("NebulaOS")]
+nebula-mode MODE="" NOW="":
     #!/usr/bin/bash
     source /usr/lib/ujust/ujust.sh
     set -euo pipefail
-    SIDE="{{ SIDE }}"
-    if [[ -z "$SIDE" ]]; then
-        echo "Current side at login: $(/usr/libexec/nebula-os-switch-side status)"
-        SIDE=$(Choose gaming work)
+    MODE="{{ MODE }}"
+    if [[ -z "$MODE" ]]; then
+        echo "Mode selected at login: $(/usr/libexec/nebula-os-switch-side status)"
+        MODE=$(Choose gaming work)
     fi
-    if [[ "$SIDE" == "status" ]]; then
-        echo "Side at login: $(/usr/libexec/nebula-os-switch-side status)"
+    if [[ "$MODE" == "status" ]]; then
+        echo "Mode selected at login: $(/usr/libexec/nebula-os-switch-side status)"
         exit 0
     fi
     if [[ "{{ NOW }}" == "now" ]]; then
-        /usr/libexec/nebula-os-switch-side "$SIDE" --now
+        /usr/libexec/nebula-os-switch-side "$MODE" --now
     else
-        /usr/libexec/nebula-os-switch-side "$SIDE"
+        /usr/libexec/nebula-os-switch-side "$MODE"
     fi
 
 # Install the NebulaOS app bundle now (also brings back bundled apps you removed)

@@ -2,30 +2,42 @@
 name: Build disk images
 
 # Start it by hand: Actions tab > "Build disk images" > Run workflow.
-# The ISO installer and VM image appear under "Artifacts" on the run's summary page.
+# The installer ISO and VM image appear under "Artifacts" on the run's summary
+# page for 7 days. Not yet tested by installing on real hardware: test the ISO
+# in a virtual machine first (see docs/INSTALLATION.md).
 on:
   workflow_dispatch:
     inputs:
+      image:
+        description: "Edition"
+        type: choice
+        options:
+          - nebula-os
+          - nebula-os-nvidia
+        default: nebula-os
+      tag:
+        description: "Channel"
+        type: choice
+        options:
+          - latest
+          - testing
+        default: latest
       upload-to-s3:
         description: "Upload to S3"
         required: false
         default: false
         type: boolean
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'disk_config/**'
-      - '.github/workflows/build-disk.yml'
 
 env:
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"  # do not edit
-  DEFAULT_TAG: "latest"
   BIB_IMAGE: "quay.io/centos-bootc/bootc-image-builder:latest"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -39,7 +51,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-      id-token: write
 
     steps:
       - name: Checkout
@@ -47,18 +58,19 @@ jobs:
 
       - name: Prepare environment
         run: |
-          # Use the same image name as build.yml (from image-template.env).
-          IMAGE_NAME=$(sed -n 's/^IMAGE_NAME=//p' image-template.env | tr -d "\"'")
-          echo "IMAGE_NAME=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
-          # Lowercase the image uri
-          echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}" >> ${GITHUB_ENV}
-          echo "USER_UID=$(id -u)" >> ${GITHUB_ENV}
-          echo "USER_GID=$(id -g)" >> ${GITHUB_ENV}
+          {
+            echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}"
+            echo "USER_UID=$(id -u)"
+            echo "USER_GID=$(id -g)"
+          } >> "${GITHUB_ENV}"
 
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@695eb75bc387dbcd9685a8e72d23439d8686cba6
         with:
           remove-codeql: true
+
+      - name: Free disk space
+        run: df -h /
 
       - name: Build disk images
         id: build
@@ -66,24 +78,24 @@ jobs:
         with:
           builder-image: ${{ env.BIB_IMAGE }}
           config-file: ${{ matrix.disk-type == 'anaconda-iso' && './disk_config/iso.toml' || './disk_config/disk.toml' }}
-          image: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
+          image: ${{ env.IMAGE_REGISTRY }}/${{ inputs.image }}:${{ inputs.tag }}
           chown: ${{ env.USER_UID }}:${{ env.USER_GID }}
           types: ${{ matrix.disk-type }}
           additional-args: --use-librepo=True
 
       - name: Upload disk images and Checksum to Job Artifacts
-        if: inputs.upload-to-s3 != true && github.event_name != 'pull_request'
+        if: inputs.upload-to-s3 != true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ${{ env.IMAGE_NAME }}-${{ matrix.disk-type }}
+          name: ${{ inputs.image }}-${{ inputs.tag }}-${{ matrix.disk-type }}
           path: ${{ steps.build.outputs.output-directory }}
           if-no-files-found: error
-          retention-days: 0
+          retention-days: 7
           compression-level: 0
           overwrite: true
 
       - name: Upload to S3
-        if: inputs.upload-to-s3 == true && github.event_name != 'pull_request'
+        if: inputs.upload-to-s3 == true
         shell: bash
         env:
           RCLONE_CONFIG_S3_TYPE: s3
@@ -93,7 +105,8 @@ jobs:
           RCLONE_CONFIG_S3_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
           SOURCE_DIR: ${{ steps.build.outputs.output-directory }}
+          BUCKET: ${{ secrets.S3_BUCKET_NAME }}
         run: |
           sudo apt-get update
           sudo apt-get install -y rclone
-          rclone copy $SOURCE_DIR S3:${{ secrets.S3_BUCKET_NAME }}
+          rclone copy "${SOURCE_DIR}" "S3:${BUCKET}"
