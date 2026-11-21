@@ -1,0 +1,16 @@
+# NebulaOS default wallpaper. Sorts after Bazzite's zz0-* overrides, so it wins.
+# Only changes the default: wallpapers people pick themselves are kept.
+[org.gnome.desktop.background]
+picture-uri='file:///usr/share/backgrounds/nebula-os/nebula-day.svg'
+picture-uri-dark='file:///usr/share/backgrounds/nebula-os/nebula-night.svg'
+picture-options='zoom'
+primary-color='#0d0724'
+
+# Dock for the work side: Bazaar store and VS Code first, plus a shortcut back to Gaming Mode.
+[org.gnome.shell]
+favorite-apps=['org.mozilla.firefox.desktop', 'io.github.kolunmi.Bazaar.desktop', 'code.desktop', 'org.gnome.Ptyxis.desktop', 'org.gnome.Nautilus.desktop', 'steam.desktop', 'nebula-os-switch-to-gaming.desktop']
+
+[org.gnome.desktop.screensaver]
+picture-uri='file:///usr/share/backgrounds/nebula-os/nebula-night.svg'
+picture-options='zoom'
+primary-color='#0d0724'

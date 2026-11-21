@@ -1,0 +1,13 @@
+# Signing key: NEVER commit this. It belongs in the SIGNING_SECRET GitHub secret.
+cosign.key
+cosign.password
+
+# Build output
+output/
+_build_*
+_build-*/**
+*_chunkah_*
+*_rpm-ostree_*
+previous.manifest.json
+changelog.md
+output.env

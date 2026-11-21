@@ -1,0 +1,49 @@
+#!/usr/bin/bash
+# Switch between the two sides of NebulaOS:
+#   gaming  Steam Gaming Mode (full-screen Steam, controller friendly)
+#   work    GNOME desktop with the developer tools and the Bazaar store
+#
+# Usage: nebula-os-switch-side gaming|work [--now]
+#   Without --now, only the side picked at the next login changes.
+#   With --now, you are also logged out so you can sign in to that side.
+#
+# The choice is stored with AccountsService, which the login screen (GDM)
+# reads to pre-select the session. No password is needed for your own account.
+set -euo pipefail
+
+GAMING_SESSION="gamescope-session-steam"
+WORK_SESSION="gnome"
+
+side="${1:-}"
+case "$side" in
+    gaming) session="$GAMING_SESSION" ;;
+    work) session="$WORK_SESSION" ;;
+    status)
+        current=$(busctl get-property org.freedesktop.Accounts "/org/freedesktop/Accounts/User$(id -u)" \
+            org.freedesktop.Accounts.User Session | awk '{print $2}' | tr -d '"')
+        if [[ "$current" == "$GAMING_SESSION"* ]]; then echo "gaming"; else echo "work"; fi
+        exit 0
+        ;;
+    *)
+        echo "Usage: ${0##*/} gaming|work|status [--now]" >&2
+        exit 2
+        ;;
+esac
+
+user_path="/org/freedesktop/Accounts/User$(id -u)"
+busctl call org.freedesktop.Accounts "$user_path" org.freedesktop.Accounts.User SetSession s "$session"
+busctl call org.freedesktop.Accounts "$user_path" org.freedesktop.Accounts.User SetSessionType s wayland
+
+if [[ "${2:-}" != "--now" ]]; then
+    echo "The $side side will be selected at your next login."
+    exit 0
+fi
+
+# Leave the current session; the login screen then offers the chosen side.
+if [[ "${XDG_CURRENT_DESKTOP:-}" == *GNOME* ]]; then
+    gnome-session-quit --logout --no-prompt
+elif pgrep -u "$(id -u)" -x steam >/dev/null; then
+    steam -shutdown
+else
+    loginctl terminate-session "${XDG_SESSION_ID:-}"
+fi

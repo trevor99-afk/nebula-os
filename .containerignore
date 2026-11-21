@@ -1,0 +1,8 @@
+# Keep secrets and large build output out of the container build context.
+cosign.key
+cosign.password
+.git
+output
+_build*
+*_chunkah_*
+*_rpm-ostree_*

@@ -1,0 +1,12 @@
+#!/usr/bin/bash
+# Called by Steam (through /usr/bin/steamos-session-select) for "Switch to
+# Desktop" in Gaming Mode. steamos-session-select prefers this file over
+# Bazzite's /usr/libexec/os-session-select, which relies on steamosctl and SDDM;
+# NebulaOS uses the GDM login screen instead, so it switches sides with
+# nebula-os-switch-side.
+set -euo pipefail
+
+case "${1:-gamescope}" in
+    gamescope) exec /usr/libexec/nebula-os-switch-side gaming --now ;;
+    *) exec /usr/libexec/nebula-os-switch-side work --now ;;
+esac
