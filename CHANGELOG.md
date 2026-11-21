@@ -2,7 +2,7 @@
 
 All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `latest` (branch `main`).
 
-## 0.2.0: Foundation (testing)
+## 0.2.0: Foundation (2026-11-21)
 
 ### Added
 - **`nebula` tool** (`/usr/bin/nebula`, Python standard library only):
