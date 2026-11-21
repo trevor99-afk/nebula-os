@@ -1,0 +1,23 @@
+# NebulaOS app bundle: Flatpaks installed system-wide from Flathub on first boot.
+#
+# One Flathub app ID per line; everything after # is a comment.
+# Find IDs at https://flathub.org (the ID is the last part of an app's URL).
+# Apps a user uninstalls are never reinstalled automatically.
+#
+# Bazzite already provides: Steam, Lutris, ProtonPlus, Protontricks, Flatseal and more.
+
+# Game launchers
+com.heroicgameslauncher.hgl     # Heroic Games Launcher: Epic, GOG and Amazon games
+com.usebottles.bottles          # Bottles: run Windows apps and games
+
+# Streaming & chat
+com.obsproject.Studio           # OBS Studio: record and stream gameplay
+dev.vencord.Vesktop             # Vesktop: Discord client with screen-share audio
+
+# Performance tools
+io.github.radiolamp.mangojuice  # MangoJuice: set up the MangoHud FPS overlay
+
+# Emulators
+org.libretro.RetroArch          # RetroArch: retro consoles
+org.DolphinEmu.dolphin-emu      # Dolphin: GameCube and Wii
+net.pcsx2.PCSX2                 # PCSX2: PlayStation 2

@@ -1,0 +1,75 @@
+#!/usr/bin/bash
+# Installs the NebulaOS app bundle: system-wide Flatpaks from Flathub, listed in
+# /usr/share/nebula-os/flatpaks.list.
+#
+# Runs at boot (nebula-os-flatpak-setup.service). Each app is installed only
+# once: if you uninstall one later, it stays uninstalled. Apps added to the list
+# by a future NebulaOS update are installed on the next boot.
+#
+# Usage: nebula-os-flatpak-setup [--all]
+#   --all   also reinstall listed apps that you removed earlier
+set -uo pipefail
+
+LIST=/usr/share/nebula-os/flatpaks.list
+STATE_DIR=/var/lib/nebula-os
+STATE_FILE="$STATE_DIR/flatpaks-handled"
+
+REINSTALL_REMOVED=0
+case "${1:-}" in
+    --all) REINSTALL_REMOVED=1 ;;
+    "") ;;
+    *)
+        echo "Usage: ${0##*/} [--all]" >&2
+        exit 2
+        ;;
+esac
+
+if [[ $EUID -ne 0 ]]; then
+    echo "Please run as root (sudo ${0##*/})." >&2
+    exit 1
+fi
+
+mkdir -p "$STATE_DIR"
+touch "$STATE_FILE"
+
+remember() {
+    grep -qxF "$1" "$STATE_FILE" || echo "$1" >>"$STATE_FILE"
+}
+
+# Bazzite normally sets up Flathub already; make sure anyway.
+if ! flatpak remotes --system --columns=name | grep -qx flathub; then
+    flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+fi
+flatpak remote-modify --system --enable flathub || true
+
+failed=0
+while IFS= read -r line || [[ -n "$line" ]]; do
+    app="${line%%#*}"          # drop comments
+    app="${app//[[:space:]]/}" # drop whitespace
+    [[ -z "$app" ]] && continue
+
+    if flatpak info --system "$app" &>/dev/null; then
+        remember "$app"
+        continue
+    fi
+    # Someone already installed it just for themselves: don't add a second copy.
+    if compgen -G "/home/*/.local/share/flatpak/app/${app}" >/dev/null; then
+        echo "Skipping $app (already installed for a user)"
+        remember "$app"
+        continue
+    fi
+    if ((!REINSTALL_REMOVED)) && grep -qxF "$app" "$STATE_FILE"; then
+        echo "Skipping $app (it was removed after an earlier install)"
+        continue
+    fi
+
+    echo "Installing $app ..."
+    if flatpak install --system --noninteractive --or-update flathub "$app"; then
+        remember "$app"
+    else
+        echo "Could not install $app; will retry later." >&2
+        failed=1
+    fi
+done <"$LIST"
+
+exit "$failed"

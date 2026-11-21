@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Switch to Gaming Mode
+Comment=Log out and start the NebulaOS gaming side (Steam Gaming Mode)
+Exec=/usr/libexec/nebula-os-switch-side gaming --now
+Icon=steam
+Categories=Game;
+Keywords=gaming;steam;big picture;console;
+OnlyShowIn=GNOME;

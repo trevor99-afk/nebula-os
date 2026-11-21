@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- NebulaOS logo. Original artwork for NebulaOS. -->
+  <defs>
+    <radialGradient id="body" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#f5d0fe"/>
+      <stop offset="0.4" stop-color="#c084fc"/>
+      <stop offset="0.8" stop-color="#6d28d9"/>
+      <stop offset="1" stop-color="#2e1065"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#e879f9"/>
+    </linearGradient>
+  </defs>
+  <g transform="rotate(-20 128 134)">
+    <ellipse cx="128" cy="134" rx="124.8" ry="29.44" fill="none" stroke="url(#ring)" stroke-width="5.8" opacity="1"/>
+    <circle cx="128" cy="134" r="64" fill="url(#body)"/>
+    <path d="M 3.200000000000003 134 A 124.8 29.44 0 0 0 252.8 134" fill="none" stroke="url(#ring)" stroke-width="5.8" opacity="1"/>
+  </g>
+  <path d="M 200 30 Q 204 50 222 54 Q 204 58 200 78 Q 196 58 178 54 Q 196 50 200 30 Z" fill="#f5d0fe"/>
+  <path d="M 52 182 Q 54 192 63 194 Q 54 196 52 206 Q 50 196 41 194 Q 50 192 52 182 Z" fill="#a5f3fc"/>
+</svg>

@@ -1,0 +1,4 @@
+# Disk layout for virtual machine images (just build-qcow2 / just build-raw).
+[[customizations.filesystem]]
+mountpoint = "/"
+minsize = "40 GiB"

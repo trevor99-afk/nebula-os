@@ -1,0 +1,21 @@
+[Unit]
+Description=Install the NebulaOS app bundle from Flathub
+Documentation=file:///usr/share/nebula-os/flatpaks.list
+Wants=network-online.target
+After=network-online.target bazzite-flatpak-manager.service
+ConditionPathExists=/usr/share/nebula-os/flatpaks.list
+# Retry a few times per boot (e.g. no internet yet), then wait for the next boot.
+StartLimitIntervalSec=1h
+StartLimitBurst=4
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/nebula-os-flatpak-setup
+Restart=on-failure
+RestartSec=5min
+# Stay out of the way of games while downloading.
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

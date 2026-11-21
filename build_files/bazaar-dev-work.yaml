@@ -1,0 +1,32 @@
+  - section:
+      title:
+        en: "Development & Work"
+      subtitle:
+        string:
+          en: "NebulaOS picks for coding, containers and getting work done"
+      appids:
+        list:
+          - io.podman_desktop.PodmanDesktop
+          - com.github.marhkb.Pods
+          - io.github.dvlv.boxbuddyrs
+          - me.iepure.devtoolbox
+          - org.gnome.Builder
+          - org.gnome.meld
+          - io.github.shiftey.Desktop
+          - com.usebruno.Bruno
+          - rest.insomnia.Insomnia
+          - io.dbeaver.DBeaverCommunity
+          - com.google.AndroidStudio
+          - org.godotengine.Godot
+          - org.blender.Blender
+          - cc.arduino.IDE2
+          - org.libreoffice.LibreOffice
+          - org.onlyoffice.desktopeditors
+          - md.obsidian.Obsidian
+          - com.logseq.Logseq
+          - org.mozilla.thunderbird
+          - com.slack.Slack
+          - us.zoom.Zoom
+          - com.github.IsmaelMartinez.teams_for_linux
+          - org.signal.Signal
+          - org.telegram.desktop

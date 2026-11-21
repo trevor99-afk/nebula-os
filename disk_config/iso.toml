@@ -1,0 +1,30 @@
+# Installer (ISO) settings for bootc-image-builder. Used by `just build-iso` and
+# the "Build disk images" GitHub workflow.
+#
+# After installing, point the new system at the published image so it gets
+# updates. The address is read from the image itself (/usr/share/nebula-os/image-ref,
+# written at build time from REPO_ORGANIZATION and IMAGE_NAME in image-template.env),
+# so this file never needs editing.
+[customizations.installer.kickstart]
+contents = """
+%post
+bootc switch --mutate-in-place --transport registry "$(cat /usr/share/nebula-os/image-ref)"
+%end
+"""
+
+# GNOME creates the user account on first boot, so the installer skips those screens.
+# For a KDE base image, enable the Network, Security, Services, Users and Timezone
+# modules instead (KDE has no first-boot setup).
+[customizations.installer.modules]
+enable = [
+  "org.fedoraproject.Anaconda.Modules.Storage",
+  "org.fedoraproject.Anaconda.Modules.Runtime"
+]
+disable = [
+  "org.fedoraproject.Anaconda.Modules.Network",
+  "org.fedoraproject.Anaconda.Modules.Security",
+  "org.fedoraproject.Anaconda.Modules.Services",
+  "org.fedoraproject.Anaconda.Modules.Users",
+  "org.fedoraproject.Anaconda.Modules.Subscription",
+  "org.fedoraproject.Anaconda.Modules.Timezone"
+]

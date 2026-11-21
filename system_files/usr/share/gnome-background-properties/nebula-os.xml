@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!DOCTYPE wallpapers SYSTEM "gnome-wp-list.dtd">
+<wallpapers>
+    <wallpaper deleted="false">
+        <name>NebulaOS</name>
+        <filename>/usr/share/backgrounds/nebula-os/nebula-day.svg</filename>
+        <filename-dark>/usr/share/backgrounds/nebula-os/nebula-night.svg</filename-dark>
+        <options>zoom</options>
+        <shade_type>solid</shade_type>
+        <pcolor>#0d0724</pcolor>
+        <scolor>#2a1660</scolor>
+    </wallpaper>
+</wallpapers>
