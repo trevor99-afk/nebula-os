@@ -16,7 +16,7 @@ just test          # unit tests for the nebula tools (no root, no network)
 just validate      # config files: TOML, Flatpak app IDs, systemd units
 just lint          # shellcheck (uses a container if shellcheck is not installed)
 just build         # build localhost/nebula-os:latest (NEBULA_PULL=never to skip pulling the base)
-just test-image    # run the 40 image tests inside the built image
+just test-image    # run the image tests inside the built image
 ```
 
 CI runs all of these. It also runs hadolint and actionlint, and publishes nothing unless they pass.

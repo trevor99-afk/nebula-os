@@ -76,6 +76,14 @@ class Checks(unittest.TestCase):
         self.assertEqual(check.status, "warn")
         self.assertIn("turned off", check.summary)
 
+    def test_bluetooth_ignores_connected_device_entries(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("hci0", "hci0:3585"):  # the kernel adds hciN:HANDLE per connection
+                (Path(tmp) / "sys/class/bluetooth" / name).mkdir(parents=True)
+            runner = FakeRunner({("systemctl", "is-active", "bluetooth.service"): ok("active\n")})
+            check = doctor.check_bluetooth(ctx(runner, root=tmp))
+        self.assertEqual((check.status, check.summary), ("ok", "Adapter hci0 ready."))
+
     def test_controllers(self):
         devices = ('I: Bus=0005\nN: Name="Xbox Wireless Controller"\nH: Handlers=event20 js0\n\n'
                    'I: Bus=0011\nN: Name="AT Translated Set 2 keyboard"\nH: Handlers=sysrq kbd event3\n')

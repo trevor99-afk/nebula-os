@@ -198,7 +198,8 @@ def check_audio(ctx: Context) -> Check:
 
 def check_bluetooth(ctx: Context) -> Check:
     base = under(ctx.root, "sys/class/bluetooth")
-    adapters = sorted(p.name for p in base.iterdir()) if base.is_dir() else []
+    # Adapters are hciN; the kernel also adds an hciN:HANDLE entry for each connected device.
+    adapters = sorted(p.name for p in base.iterdir() if re.fullmatch(r"hci\d+", p.name)) if base.is_dir() else []
     if not adapters:
         return Check("bluetooth", "Bluetooth", "info", "No Bluetooth adapter found.")
     blocked = []

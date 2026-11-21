@@ -13,7 +13,7 @@ Each build also gets `<channel>-<YYYYMMDD>` and `<channel>-<commit>` tags, so an
 
 1. `checks` job: just syntax, shellcheck, config validation, unit tests, hadolint, actionlint.
 2. Build each edition (`nebula-os`, `nebula-os-nvidia`), including `bootc container lint`.
-3. **Image tests** (`tests/image/test-image.sh`, 40 checks) inside the built image.
+3. **Image tests** (`tests/image/test-image.sh`) inside the built image.
 4. Rechunk, push the dated and commit tags, **sign** by digest, **verify** the signature, and only then move the channel tag.
 
 A failure at any step means nothing is published to that channel.

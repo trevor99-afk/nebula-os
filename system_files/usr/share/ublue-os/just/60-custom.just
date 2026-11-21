@@ -38,11 +38,11 @@ nebula-mode MODE="" NOW="":
     set -euo pipefail
     MODE="{{ MODE }}"
     if [[ -z "$MODE" ]]; then
-        echo "Mode selected at login: $(/usr/libexec/nebula-os-switch-side status)"
+        echo "Mode selected at login: $(/usr/libexec/nebula-os-switch-side status || echo unknown)"
         MODE=$(Choose gaming work)
     fi
     if [[ "$MODE" == "status" ]]; then
-        echo "Mode selected at login: $(/usr/libexec/nebula-os-switch-side status)"
+        echo "Mode selected at login: $(/usr/libexec/nebula-os-switch-side status || echo unknown)"
         exit 0
     fi
     if [[ "{{ NOW }}" == "now" ]]; then

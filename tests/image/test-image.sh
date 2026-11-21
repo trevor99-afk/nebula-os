@@ -55,6 +55,9 @@ check "Gaming Mode session is named" grep -qx 'Name=NebulaOS Gaming Mode' "$S/ga
 check "Work Mode session is named" grep -qx 'Name=NebulaOS Work Mode' "$S/gnome.desktop"
 check "Work Mode has no leftover translated names" bash -c "! grep -q '^Name\\[' $S/gnome.desktop"
 check "steamosctl is available for Bazzite's switching tools" test -x /usr/bin/steamosctl
+# This container has no system bus, so the saved mode cannot be read: both must fail, not guess.
+check "mode status fails when AccountsService is unreachable" bash -c '! /usr/libexec/nebula-os-switch-side status'
+check "steamosctl get-default-login-mode fails the same way" bash -c '! steamosctl get-default-login-mode'
 check "Steam's Switch to Desktop reaches /usr/lib/os-session-select" grep -q '/usr/lib/os-session-select' /usr/bin/steamos-session-select
 check "GDM profile reads the gdm database" bash -c 'grep -qs "system-db:gdm" /etc/dconf/profile/gdm /usr/share/dconf/profile/gdm'
 check "login screen message is compiled into the gdm database" grep -qa 'banner-message-text' /etc/dconf/db/gdm

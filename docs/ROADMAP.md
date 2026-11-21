@@ -7,7 +7,7 @@ Every phase ends with tests, documentation, and a release to the `testing` chann
 ## Phase 1: Foundation ✅ (this release)
 
 - [x] Full technical audit ([NEBULAOS_TECHNICAL_AUDIT.md](NEBULAOS_TECHNICAL_AUDIT.md)) and architecture documentation ([ARCHITECTURE.md](ARCHITECTURE.md))
-- [x] Build reliability: CI gates (lint, unit tests, 40 image tests), safe publish order (sign, verify, then move the channel tag), stable/testing channels, base digest recorded
+- [x] Build reliability: CI gates (lint, unit tests, image tests), safe publish order (sign, verify, then move the channel tag), stable/testing channels, base digest recorded
 - [x] Security: least-privilege workflows, weekly Trivy scan and SBOM, hardened app-installer service
 - [x] **Nebula Hardware Detection Engine v1** (`nebula hw`): GPUs with vendor backends (AMD, Intel, NVIDIA), Vulkan, OpenGL, VA-API, architecture, hybrid graphics (CardWire), displays with EDID, current mode, VRR and HDR, using the five-level capability model
 - [x] **Nebula System Doctor v1** (`nebula doctor`): 12 read-only checks, suggested fixes, exportable report

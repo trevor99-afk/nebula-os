@@ -53,6 +53,8 @@ def _parse_cta(block: bytes, out: Dict[str, object]) -> None:
     while pos < end:
         header = block[pos]
         tag, length = header >> 5, header & 0x1F
+        if pos + 1 + length > end:  # runs past the data block area: corrupt EDID, stop here
+            break
         payload = block[pos + 1:pos + 1 + length]
         if tag == 3 and length >= 3:  # vendor-specific data block
             oui = payload[0] | (payload[1] << 8) | (payload[2] << 16)
@@ -286,10 +288,12 @@ def hdr_capability(display: Dict[str, object]) -> Capability:
         hdr = edid.get("hdr_static_metadata")
         if isinstance(hdr, dict):
             cap.hardware = bool(hdr.get("eotf_pq") or hdr.get("eotf_hlg"))
-            nits = hdr.get("max_luminance_nits")
-            cap.evidence.append("EDID HDR metadata: " + ", ".join(
-                k for k, label in (("eotf_pq", "PQ"), ("eotf_hlg", "HLG")) if hdr.get(k)
-            ) + (f", peak {nits} nits" if nits else "") if cap.hardware else "EDID HDR block lists no PQ/HLG support")
+            if cap.hardware:
+                curves = ", ".join(label for key, label in (("eotf_pq", "PQ"), ("eotf_hlg", "HLG")) if hdr.get(key))
+                nits = hdr.get("max_luminance_nits")
+                cap.evidence.append(f"EDID HDR metadata: {curves}" + (f", peak {nits} nits" if nits else ""))
+            else:
+                cap.evidence.append("EDID HDR block lists no PQ/HLG support")
         else:
             cap.hardware = False
             cap.evidence.append("EDID has no HDR static metadata block")

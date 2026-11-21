@@ -42,7 +42,7 @@ This change fixes every verified defect below, adds the test and security gates 
 
 | # | Risk | Fix |
 | --- | --- | --- |
-| R1 | CI published images that were never tested. Only `bootc container lint` ran before the push. | A `checks` job now runs shellcheck, actionlint, hadolint, config validation and 66 unit tests. A 40-check image test suite (`tests/image/test-image.sh`) runs on every built image before anything is pushed. |
+| R1 | CI published images that were never tested. Only `bootc container lint` ran before the push. | A `checks` job now runs shellcheck, actionlint, hadolint, config validation and the unit tests. An image test suite (`tests/image/test-image.sh`) runs on every built image before anything is pushed. |
 | R2 | All tags were pushed before signing, and `cancel-in-progress` could cancel a run between push and sign. Users with signature enforcement would then get an unsigned `latest`. | Dated and commit tags are pushed first, then the image is signed, the signature is verified, and only then is the channel tag moved. Only pull request runs can be cancelled. |
 | R3 | Over-broad permissions: `id-token: write` was granted but key-based signing never uses it. | Removed. The workflow default is `contents: read`, and only the build job gets `packages: write`. |
 | R4 | No traceability: the floating `:stable` base left no record of which base digest went into an image. | The build records `org.opencontainers.image.base.name` and `base.digest` labels plus `/usr/share/nebula-os/build-info.json`, which `nebula status` shows. |
@@ -98,6 +98,20 @@ The rule for NebulaOS: **reuse what Bazzite and Universal Blue already do well, 
 | Control Center GUI, Gaming Optimizer, Display Lab, Visual Quality Engine, Benchmark, Dev Hub, AI Hub, Creative profiles, GTK, icon and cursor themes, boot branding | **Planned:** [ROADMAP.md](ROADMAP.md) |
 | Own app store | **Dropped** as a duplicate of Bazaar |
 | Performance comparison with Bazzite | **Planned.** Needs real hardware runs. |
+
+## 7. Follow-up review of the Phase 1 code
+
+Two more read-only reviews ran against commit `acd13d9`: one of the `nebula` backend, and one of mode switching and the CI publish path. CI also built both editions for the first time. Every finding was reproduced by hand before it was fixed, and every fix has a test that fails on `acd13d9`.
+
+| # | Problem | Evidence | Fix |
+| --- | --- | --- | --- |
+| F1 | The NVIDIA edition did not build. | CI run 44949472907: `No such key "experimental-features" in schema "org.gnome.mutter" as specified in override file ".../zz0-20-bazzite-nvidia-silverblue-global.gschema.override" and --strict was specified`. The file comes from the Bazzite NVIDIA base. | The NebulaOS override is checked strictly on its own, and the full compile is not strict, like Bazzite's own. Reproduced with the same override in the AMD/Intel image. A typo in the NebulaOS override still fails the build. |
+| F2 | `nebula doctor --report` kept an existing file's permissions (for example 0644) and followed symlinks. | `os.open(path, ..., 0o600)` sets the mode of new files only. | The report goes to a new private file that is then moved into place. A symlink or non-file path is refused. |
+| F3 | `nebula hw` crashed (`IndexError`) on an EDID whose CTA-861 data block runs past the data block area. | A synthetic EDID, and a fuzz test with 3,000 random extension blocks. | Parsing stops at such a block, as the Linux kernel's EDID parser does. |
+| F4 | HDR evidence read "eotf_pq, eotf_hlg" instead of "PQ, HLG". | Unit test. | The labels are used. |
+| F5 | Connected Bluetooth devices (`hci0:HANDLE` entries in `/sys/class/bluetooth`) were listed as adapters. | Fake sysfs tree. | Only `hciN` entries count as adapters. |
+| F6 | Unexpected `rpm-ostree status --json` output crashed `nebula status` and `nebula update`. | `[]`, `null` and `{"deployments": null}` raised exceptions. | Such output counts as "no deployment information". |
+| F7 | The mode status printed "work", and reported success, when AccountsService could not be reached. | A stubbed `busctl` that fails. | It now fails with a message. `ujust nebula-mode` shows "unknown", and the `steamosctl` shim passes the failure on. Two image tests cover this. |
 
 ## Unverified (needs a real boot)
 

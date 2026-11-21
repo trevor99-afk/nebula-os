@@ -41,7 +41,7 @@ flowchart LR
     Dev["push: dev"] --> C
     Main["push: main / daily schedule"] --> C
     C["checks: just syntax, shellcheck, hadolint, actionlint, config validation, unit tests"] --> BLD
-    BLD["build edition (nebula-os, nebula-os-nvidia)"] --> TST["image tests (40 checks)"]
+    BLD["build edition (nebula-os, nebula-os-nvidia)"] --> TST["image tests"]
     TST --> RC["rpm-ostree rechunk"]
     RC -->|PR: stop here| X(("no publish"))
     RC --> P1["push dated + commit tags"]

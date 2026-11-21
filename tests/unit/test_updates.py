@@ -43,6 +43,16 @@ class Status(unittest.TestCase):
         self.assertEqual(len(info["deployments"]), 2)
         self.assertEqual(info["deployments"][1]["verification"], "unverified")
 
+    def test_unexpected_json_shapes(self):
+        def parse(raw):
+            return updates.deployments(FakeRunner({("rpm-ostree", "status"): ok(raw)}))
+        for raw in ("[]", "null", "42"):
+            self.assertIsNone(parse(raw), raw)
+        for raw in ('{"deployments": null}', '{"deployments": "x"}', '{"deployments": ["x", 1]}'):
+            self.assertEqual(parse(raw)["deployments"], [], raw)
+        odd = parse('{"deployments": [{"booted": true, "container-image-reference": 5}]}')["deployments"]
+        self.assertEqual((odd[0]["booted"], odd[0]["image_ref"], odd[0]["verification"]), (True, "", "unknown"))
+
     def test_summary_states(self):
         self.assertEqual(updates.summary(self.info())["state"], "not-checked")
         self.assertEqual(updates.summary(self.info(cached=True))["state"], "available")

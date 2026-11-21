@@ -25,7 +25,8 @@ case "$cmd" in
         esac
         ;;
     get-default-login-mode)
-        if [[ "$("$SWITCH" status)" == gaming ]]; then echo "game"; else echo "desktop"; fi
+        mode=$("$SWITCH" status) # fails (and so does this) when the mode cannot be read
+        if [[ "$mode" == gaming ]]; then echo "game"; else echo "desktop"; fi
         ;;
     switch-to-game-mode) exec "$SWITCH" gaming --now ;;
     switch-to-desktop-mode) exec "$SWITCH" work --now ;;

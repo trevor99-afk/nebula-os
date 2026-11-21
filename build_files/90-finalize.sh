@@ -24,8 +24,19 @@ if [[ -f "$OVERRIDE" ]]; then
     echo "Dock favorites OK: $favorites"
 fi
 
-# Compile GNOME default settings. --strict makes typos in overrides fail the build.
-glib-compile-schemas --strict "$SCHEMAS"
+# Compile GNOME default settings. The NebulaOS override is checked on its own first,
+# with --strict, so a typo in it fails the build. The full compile is not strict:
+# override files from the base image can name keys its GNOME no longer has (the
+# Bazzite NVIDIA image sets org.gnome.mutter experimental-features), and GNOME skips
+# those keys, as it does on the base image itself.
+if [[ -f "$OVERRIDE" ]]; then
+    check_dir=$(mktemp -d)
+    cp "$SCHEMAS"/*.xml "$OVERRIDE" "$check_dir"/
+    glib-compile-schemas --strict --targetdir="$check_dir" "$check_dir"
+    rm -rf "$check_dir"
+    echo "NebulaOS settings override OK."
+fi
+glib-compile-schemas "$SCHEMAS"
 
 # Compile dconf databases (login screen message in /etc/dconf/db/gdm.d).
 dconf update

@@ -1,4 +1,5 @@
 import json
+import random
 import tempfile
 import unittest
 from pathlib import Path
@@ -52,6 +53,24 @@ class ParseEdid(unittest.TestCase):
         self.assertIsNone(display.parse_edid(b""))
         self.assertIsNone(display.parse_edid(b"\x00" * 128))
 
+    def test_data_block_running_past_its_area_is_ignored(self):
+        edid = bytearray(make_edid(hdr=True))
+        cta = edid[128:]
+        cta[2], cta[126] = 127, (3 << 5) | 31  # vendor block at the last byte claiming 31 bytes
+        e = display.parse_edid(bytes(edid[:128]) + bytes(cta))
+        self.assertTrue(e["hdr_static_metadata"]["eotf_pq"])  # blocks before the corrupt one still count
+
+    def test_random_extension_blocks_never_raise(self):
+        rng = random.Random(20261121)
+        base = bytearray(make_edid()[:128])
+        base[126] = 1
+        for i in range(3000):
+            block = bytearray(rng.getrandbits(8) for _ in range(128))
+            block[0] = 0x02 if i % 3 else 0x70  # CTA-861 or DisplayID
+            if i % 2:
+                block[2] = 127  # data blocks reach the end of the block, where truncation bites
+            self.assertIsNotNone(display.parse_edid(bytes(base) + bytes(block)))
+
 
 class Capabilities(unittest.TestCase):
     def test_vrr_available_but_off(self):
@@ -64,6 +83,10 @@ class Capabilities(unittest.TestCase):
     def test_vrr_not_claimed_for_fixed_range_hdmi(self):
         d = {"connector": "HDMI-A-1", "edid": display.parse_edid(make_edid(range_only=False))}
         self.assertIsNone(display.vrr_capability(d).hardware)
+
+    def test_hdr_evidence_names_the_curves(self):
+        c = display.hdr_capability({"edid": display.parse_edid(make_edid(hdr=True))})
+        self.assertRegex(c.evidence[0], r"^EDID HDR metadata: PQ, HLG, peak \d+ nits$")
 
     def test_hdr_missing_from_edid(self):
         c = display.hdr_capability({"edid": display.parse_edid(make_edid())})

@@ -7,9 +7,12 @@ future Nebula Control Center uses the same data.
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import os
+import stat
 import sys
+import tempfile
 import time
 from typing import Dict, List, Optional
 
@@ -209,9 +212,26 @@ def write_report(path: str, results: List[doctor.Check], include_logs: bool) -> 
     if include_logs:
         res = run(["journalctl", "-b", "-p", "err", "-n", "200", "--no-pager", "-o", "short-iso"], timeout=20)
         data["error_log"] = res.stdout.splitlines()
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=2, default=str)
+    # The report is always a new file that only you can read. It replaces a regular file at
+    # PATH (an old file could have wider permissions) and is never written through a symlink.
+    try:
+        existing: Optional[os.stat_result] = os.lstat(path)
+    except FileNotFoundError:
+        existing = None
+    if existing is not None and not stat.S_ISREG(existing.st_mode):
+        kind = "a symbolic link" if stat.S_ISLNK(existing.st_mode) else "not a regular file"
+        raise OSError(errno.EEXIST, f"it is {kind}", path)
+    fd, tmp = tempfile.mkstemp(prefix=".nebula-report-", dir=os.path.dirname(os.path.abspath(path)))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2, default=str)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
+        raise
     print(f"Report written to {path}.")
     if include_logs:
         print("It contains this boot's error log, which can include names of devices, networks and users. "
@@ -265,7 +285,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         else:
             print_doctor(results)
         if args.report:
-            write_report(args.report, results, args.include_logs)
+            try:
+                write_report(args.report, results, args.include_logs)
+            except OSError as err:
+                print(f"Could not write the report to {args.report}: {err.strerror or err}", file=sys.stderr)
+                return 2
         return 1 if doctor.overall(results) == "fail" else 0
     if args.command == "update":
         info = updates.deployments()

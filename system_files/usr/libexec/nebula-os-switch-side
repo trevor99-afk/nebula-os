@@ -25,8 +25,12 @@ case "$side" in
     gaming) session="$GAMING_SESSION" ;;
     work) session="$WORK_SESSION" ;;
     status)
+        if ! current=$(current_session); then
+            echo "Could not read the login mode from AccountsService." >&2
+            exit 1
+        fi
         # Any Steam Gaming Mode session (plain or with OpenGamepadUI) counts as gaming.
-        if [[ "$(current_session)" == gamescope-session* ]]; then echo "gaming"; else echo "work"; fi
+        if [[ "$current" == gamescope-session* ]]; then echo "gaming"; else echo "work"; fi
         exit 0
         ;;
     *)

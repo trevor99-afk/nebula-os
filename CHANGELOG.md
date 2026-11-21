@@ -15,7 +15,7 @@ All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `
 - `ujust nebula-doctor` and `ujust nebula-hw`.
 - **NVIDIA edition** `nebula-os-nvidia` (based on `bazzite-dx-nvidia-gnome`), built in CI. Not yet tested on NVIDIA hardware.
 - **Testing channel:** the `dev` branch publishes `:testing`.
-- CI: lint (shellcheck, hadolint, actionlint), config validation, 66 unit tests, 40 image tests before publishing, signature verification, weekly Trivy scan and SBOM.
+- CI: lint (shellcheck, hadolint, actionlint), config validation, 77 unit tests, 42 image tests before publishing, signature verification, weekly Trivy scan and SBOM.
 - `build-info.json`, plus base image name and digest labels in every image.
 - Documentation: technical audit, architecture, roadmap, installation, hardware compatibility, troubleshooting, release process, gaming, development, AI, security and contributing guides.
 
@@ -25,6 +25,12 @@ All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `
 - The mode status ignored Bazzite's "Plus" Gaming Mode session.
 - The publish order could leave an unsigned `latest` image if a run was cancelled.
 - The disk-image workflow built the published image instead of the pull request.
+- The NVIDIA edition did not build: the strict GNOME settings check also checked Bazzite's NVIDIA override, which names a key its GNOME no longer has. Only the NebulaOS override is checked strictly now.
+- `nebula doctor --report` kept the permissions of an existing file, so a report could stay readable by other users, and it wrote through symlinks. The report is now always a new file that only you can read; symlinks are refused.
+- `nebula hw` crashed on an EDID with a corrupt CTA-861 data block, and its HDR evidence showed key names instead of PQ and HLG.
+- The System Doctor listed connected Bluetooth devices as adapters.
+- `nebula status` and `nebula update` could crash on unexpected `rpm-ostree` output.
+- The mode status answered "work" when the saved mode could not be read. It now reports an error, and `ujust nebula-mode` shows "unknown".
 
 ### Changed
 - The app-bundle installer only installs (updates stay with Bazzite's updater) and runs with systemd hardening.

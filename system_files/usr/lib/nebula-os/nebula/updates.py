@@ -48,9 +48,15 @@ def deployments(runner: Runner = run) -> Optional[Dict[str, object]]:
         data = json.loads(res.stdout)
     except ValueError:
         return None
+    if not isinstance(data, dict):
+        return None
+    deps = data.get("deployments")
     result: List[Dict[str, object]] = []
-    for dep in data.get("deployments", []):
-        ref = dep.get("container-image-reference") or ""
+    for dep in deps if isinstance(deps, list) else []:
+        if not isinstance(dep, dict):
+            continue
+        ref = dep.get("container-image-reference")
+        ref = ref if isinstance(ref, str) else ""
         parsed = parse_image_ref(ref)
         result.append({
             "id": dep.get("id"),
