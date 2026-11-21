@@ -15,7 +15,7 @@ All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `
 - `ujust nebula-doctor` and `ujust nebula-hw`.
 - **NVIDIA edition** `nebula-os-nvidia` (based on `bazzite-dx-nvidia-gnome`), built in CI. Not yet tested on NVIDIA hardware.
 - **Testing channel:** the `dev` branch publishes `:testing`.
-- CI: lint (shellcheck, hadolint, actionlint), config validation, 77 unit tests, 42 image tests before publishing, signature verification, weekly Trivy scan and SBOM.
+- CI: lint (shellcheck, hadolint, actionlint), config validation, 77 unit tests, 43 image tests before publishing, signature verification, weekly Trivy scan and SBOM.
 - `build-info.json`, plus base image name and digest labels in every image.
 - Documentation: technical audit, architecture, roadmap, installation, hardware compatibility, troubleshooting, release process, gaming, development, AI, security and contributing guides.
 
