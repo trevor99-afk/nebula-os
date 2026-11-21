@@ -2,11 +2,12 @@
 # shellcheck disable=SC2016  # $vars inside single quotes are jq/bash -c code, on purpose
 # Smoke tests that run inside a freshly built NebulaOS image (no systemd, no D-Bus):
 #   just test-image            (or)
-#   podman run --rm -v ./tests/image:/tests:ro IMAGE bash /tests/test-image.sh EXPECTED_IMAGE_REF
+#   podman run --rm -v ./tests/image:/tests:ro IMAGE bash /tests/test-image.sh EXPECTED_IMAGE_REF [EXPECTED_REPO_URL]
 # Exits non-zero if any test fails, so CI never publishes a broken image.
 set -uo pipefail
 
 EXPECTED_REF="${1:-}"
+EXPECTED_REPO_URL="${2:-}"
 FAILED=0
 pass() { echo "PASS  $*"; }
 fail() {
@@ -32,6 +33,10 @@ if [[ -n "$EXPECTED_REF" ]]; then
     repo="${EXPECTED_REF%:*}"
     check "signature policy covers $repo" jq -e --arg r "$repo" '.transports.docker[$r][0].type == "sigstoreSigned"' /etc/containers/policy.json
     check "registries.d enables sigstore attachments" grep -q "$repo" /etc/containers/registries.d/nebula-os.yaml
+fi
+if [[ -n "$EXPECTED_REPO_URL" ]]; then
+    check "os-release links to $EXPECTED_REPO_URL" \
+        test "${HOME_URL:-}|${BUG_REPORT_URL:-}" = "$EXPECTED_REPO_URL|$EXPECTED_REPO_URL/issues"
 fi
 
 # --- Services and executables ------------------------------------------------------------

@@ -101,7 +101,7 @@ The rule for NebulaOS: **reuse what Bazzite and Universal Blue already do well, 
 
 ## 7. Follow-up review of the Phase 1 code
 
-Two more read-only reviews ran against commit `acd13d9`: one of the `nebula` backend, and one of mode switching and the CI publish path. CI also built both editions for the first time. Every finding was reproduced by hand before it was fixed, and every fix has a test that fails on `acd13d9`.
+Two more read-only reviews ran against commit `acd13d9`: one of the `nebula` backend, and one of mode switching and the CI publish path. CI also built both editions for the first time, and the published `:testing` image was inspected. Every finding was reproduced by hand before it was fixed, and every fix is covered by a test or a build check.
 
 | # | Problem | Evidence | Fix |
 | --- | --- | --- | --- |
@@ -112,6 +112,8 @@ Two more read-only reviews ran against commit `acd13d9`: one of the `nebula` bac
 | F5 | Connected Bluetooth devices (`hci0:HANDLE` entries in `/sys/class/bluetooth`) were listed as adapters. | Fake sysfs tree. | Only `hciN` entries count as adapters. |
 | F6 | Unexpected `rpm-ostree status --json` output crashed `nebula status` and `nebula update`. | `[]`, `null` and `{"deployments": null}` raised exceptions. | Such output counts as "no deployment information". |
 | F7 | The mode status printed "work", and reported success, when AccountsService could not be reached. | A stubbed `busctl` that fails. | It now fails with a message. `ujust nebula-mode` shows "unknown", and the `steamosctl` shim passes the failure on. Two image tests cover this. |
+| F8 | Published images had no labels: no version, source or base digest. So the R4 labels never reached users, and `rpm-ostree status` showed no version, because it takes the version from the `org.opencontainers.image.version` label. Labels from Bazzite (its commit and source URL) would also have been passed on. | `skopeo inspect` of `:latest` and `:testing` shows only the rechunker's own labels. `rpm-ostree compose build-chunked-oci --rootfs` builds a new image from the file tree. On the reference machine the booted version equals that label. | The build sets every OCI and ArtifactHub label itself. `just ostree-rechunk` copies them with `--label`, and fails if the version label is missing afterwards. |
+| F9 | The NVIDIA edition linked to `github.com/trevor99-afk/nebula-os-nvidia`, which does not exist (os-release `HOME_URL`, `SUPPORT_URL`, `BUG_REPORT_URL`, and the source labels). | CI log of the NVIDIA build. The URL was built from the image name. | A `REPO_NAME` setting in `image-template.env`, and an image test that checks the links. |
 
 ## Unverified (needs a real boot)
 

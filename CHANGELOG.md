@@ -31,6 +31,8 @@ All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `
 - The System Doctor listed connected Bluetooth devices as adapters.
 - `nebula status` and `nebula update` could crash on unexpected `rpm-ostree` output.
 - The mode status answered "work" when the saved mode could not be read. It now reports an error, and `ujust nebula-mode` shows "unknown".
+- Published images lost all their labels when they were rechunked, so `rpm-ostree status` and Bazzite's update tools showed no version. The labels are now copied, and the build fails if the version label is missing. Labels inherited from Bazzite (its commit and source) are no longer passed on.
+- The NVIDIA edition's links (Settings › About, bug reports) pointed to a repository that does not exist.
 
 ### Changed
 - The app-bundle installer only installs (updates stay with Bazzite's updater) and runs with systemd hardening.

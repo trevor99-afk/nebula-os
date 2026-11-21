@@ -9,10 +9,9 @@
 # ID=bazzite in os-release stays for the same reason.
 set -euo pipefail
 
-: "${IMAGE_NAME:?}" "${IMAGE_PRETTY_NAME:?}" "${IMAGE_REGISTRY:?}" "${IMAGE_TAG:?}" "${BASE_IMAGE:?}"
+: "${IMAGE_NAME:?}" "${IMAGE_PRETTY_NAME:?}" "${IMAGE_REGISTRY:?}" "${IMAGE_TAG:?}" "${BASE_IMAGE:?}" "${REPO_URL:?}"
 
 OS_RELEASE=/usr/lib/os-release
-REPO_URL="https://github.com/${IMAGE_REGISTRY#ghcr.io/}/${IMAGE_NAME}"
 
 # set_os_release KEY VALUE: writes KEY="VALUE", replacing any existing KEY line.
 set_os_release() {

@@ -4,6 +4,7 @@ set dotenv-load
 export image_name := env_var("IMAGE_NAME")
 export image_pretty_name := env_var("IMAGE_PRETTY_NAME")
 export repo_organization := env_var("REPO_ORGANIZATION")
+export repo_name := env_var("REPO_NAME")
 export base_image := env_var("BASE_IMAGE")
 export image_desc := env_var("IMAGE_DESC")
 export image_keywords := env_var("IMAGE_KEYWORDS")
@@ -126,28 +127,44 @@ build $target_image=image_name $tag=default_tag:
     BUILD_ARGS+=("--build-arg" "IMAGE_VERSION=${IMAGE_VERSION}")
     BUILD_ARGS+=("--build-arg" "GIT_SHA=${GIT_SHA}")
 
-    LABELS=()
-    LABELS+=("--label" "org.opencontainers.image.base.name=${base_image}")
-    [[ -n "${BASE_DIGEST}" ]] && LABELS+=("--label" "org.opencontainers.image.base.digest=${BASE_DIGEST}")
-    if [[ -n "${GIT_SHA}" && "${GIT_SHA}" != *-dirty ]]; then
-        LABELS+=("--label" "io.artifacthub.package.readme-url=https://raw.githubusercontent.com/{{ repo_organization }}/{{ image_name }}/${GIT_SHA}/README.md")
-        LABELS+=("--label" "org.opencontainers.image.documentation=https://raw.githubusercontent.com/{{ repo_organization }}/{{ image_name }}/${GIT_SHA}/README.md")
-        LABELS+=("--label" "org.opencontainers.image.source=https://github.com/{{ repo_organization }}/{{ image_name }}/blob/${GIT_SHA}/Containerfile")
-        LABELS+=("--label" "org.opencontainers.image.url=https://github.com/{{ repo_organization }}/{{ image_name }}/tree/${GIT_SHA}")
+    # The project repository: both editions are built from it.
+    REPO_URL="https://github.com/${repo_organization}/${repo_name}"
+    BUILD_ARGS+=("--build-arg" "REPO_URL=${REPO_URL}")
+    REVISION=""
+    README_URL="${REPO_URL}#readme"
+    if [[ -n "${GIT_SHA}" ]]; then
+        REVISION=$(git rev-parse HEAD)
+        if [[ "${GIT_SHA}" == *-dirty ]]; then
+            REVISION="${REVISION}-dirty"
+        else
+            README_URL="https://raw.githubusercontent.com/${repo_organization}/${repo_name}/${REVISION}/README.md"
+        fi
     fi
-    LABELS+=("--label" "org.opencontainers.image.version=${IMAGE_VERSION}")
 
-    # Image metadata for https://artifacthub.io/ - This is optional but is highly recommended so we all can get a index of all the custom images
-    # The metadata by itself is not going to do anything, you choose if you want your image to be on ArtifactHub or not.
-    LABELS+=("--label" "io.artifacthub.package.deprecated=false")
+    # Every OCI and ArtifactHub label is set here, so none is inherited from the base image
+    # (its revision and source describe Bazzite). `just ostree-rechunk` copies them to the
+    # published image. GitHub links the package to the repository through
+    # org.opencontainers.image.source, which must be the plain repository URL.
+    # ArtifactHub metadata is optional: it does nothing unless you list the image there.
+    LABELS=()
+    LABELS+=("--label" "org.opencontainers.image.title=${name}")
+    LABELS+=("--label" "org.opencontainers.image.description={{ image_desc }}")
+    LABELS+=("--label" "org.opencontainers.image.version=${IMAGE_VERSION}")
+    LABELS+=("--label" "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+    LABELS+=("--label" "org.opencontainers.image.revision=${REVISION}")
+    LABELS+=("--label" "org.opencontainers.image.source=${REPO_URL}")
+    LABELS+=("--label" "org.opencontainers.image.url=${REPO_URL}")
+    LABELS+=("--label" "org.opencontainers.image.documentation=${README_URL}")
+    LABELS+=("--label" "org.opencontainers.image.vendor={{ repo_organization }}")
+    LABELS+=("--label" "org.opencontainers.image.licenses=Apache-2.0")
+    LABELS+=("--label" "org.opencontainers.image.base.name=${base_image}")
+    LABELS+=("--label" "org.opencontainers.image.base.digest=${BASE_DIGEST}")
+    LABELS+=("--label" "io.artifacthub.package.readme-url=${README_URL}")
     LABELS+=("--label" "io.artifacthub.package.keywords={{ image_keywords }}")
     LABELS+=("--label" "io.artifacthub.package.license=Apache-2.0")
     LABELS+=("--label" "io.artifacthub.package.logo-url={{ image_logo_url }}")
-    LABELS+=("--label" "io.artifacthub.package.prerelease=false")
-    LABELS+=("--label" "org.opencontainers.image.created=$(date -u +%Y\-%m\-%d\T%H\:%M\:%S\Z)")
-    LABELS+=("--label" "org.opencontainers.image.description={{ image_desc }}")
-    LABELS+=("--label" "org.opencontainers.image.title={{ image_name }}")
-    LABELS+=("--label" "org.opencontainers.image.vendor={{ repo_organization }}")
+    LABELS+=("--label" "io.artifacthub.package.deprecated=false")
+    LABELS+=("--label" "io.artifacthub.package.prerelease=$([[ "${tag}" == latest ]] && echo false || echo true)")
 
     # This actually builds the image!
     PODMAN_BUILD_ARGS=("${BUILD_ARGS[@]}" "${LABELS[@]}" --pull=never --tag "${target_image}:${tag}" --file Containerfile)
@@ -201,6 +218,18 @@ ostree-rechunk $target_image=image_name $tag=default_tag:
 
     GRAPHROOT="$(podman info --format '{{ '{{.Store.GraphRoot}}' }}')"
 
+    # The chunked image is made from the file tree, so labels are not carried over on their
+    # own. Copy the build's labels (version, source, base image: see `just build`) and the
+    # kernel version. The rechunker sets containers.bootc and the ostree commit labels itself.
+    LABELS_JSON=$(podman image inspect "${RPM_OSTREE_CHUNKER_IMAGE}" | jq '.[0].Labels')
+    VERSION=$(jq -r '.["org.opencontainers.image.version"] // ""' <<<"${LABELS_JSON}")
+    LABEL_ARGS=()
+    while IFS= read -r -d '' label; do
+        LABEL_ARGS+=("--label" "${label}")
+    done < <(jq -j 'to_entries[]
+        | select((.key | test("^(org\\.opencontainers\\.image|io\\.artifacthub\\.package)\\.")) or .key == "ostree.linux" or .key == "ostree.bootable")
+        | "\(.key)=\(.value)\u0000"' <<<"${LABELS_JSON}")
+
     podman run --rm --pull=never --privileged \
       --mount=type=image,src="${target_image}:${tag}",target=/rpm-ostree \
       --mount=type=bind,src=${GRAPHROOT},target=/run/host-container-storage,rw \
@@ -211,8 +240,16 @@ ostree-rechunk $target_image=image_name $tag=default_tag:
       --max-layers 127 \
       --format-version=2 \
       --bootc \
+      "${LABEL_ARGS[@]}" \
       --rootfs /rpm-ostree \
       --output "containers-storage:[overlay@/run/host-container-storage+/run/rpm-ostree-storage]localhost/${target_image}:${tag}"
+
+    # rpm-ostree status shows this label as the system version: never publish without it.
+    after=$(podman image inspect "${RPM_OSTREE_CHUNKER_IMAGE}" | jq -r '.[0].Labels["org.opencontainers.image.version"] // ""')
+    if [[ -z "${VERSION}" || "${after}" != "${VERSION}" ]]; then
+        echo "ERROR: the rechunked image has version label '${after}', expected '${VERSION}'." >&2
+        exit 1
+    fi
 
 # Generate Default Tag
 [group('Utility')]
@@ -504,7 +541,7 @@ test-image $target_image=image_name $tag=default_tag:
     name="${target_image##*/}"
     expected="ghcr.io/${repo_organization,,}/${name,,}:${tag}"
     podman run --rm --pull=never --security-opt label=disable \
-        -v "${PWD}/tests/image:/tests:ro" "${target_image}:${tag}" bash /tests/test-image.sh "${expected}"
+        -v "${PWD}/tests/image:/tests:ro" "${target_image}:${tag}" bash /tests/test-image.sh "${expected}" "https://github.com/${repo_organization}/${repo_name}"
 
 # Runs shellcheck on all shell scripts (in a container if shellcheck is not installed)
 lint:

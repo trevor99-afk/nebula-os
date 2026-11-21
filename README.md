@@ -83,7 +83,7 @@ just build && just test-image   # build and test localhost/nebula-os:latest
 just switch-local               # switch this computer to it
 ```
 
-Settings (name, GitHub account, base image) live in `image-template.env`. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Settings (name, GitHub account and repository, base image) live in `image-template.env`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Known limitations
 
