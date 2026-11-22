@@ -547,7 +547,11 @@ test-image $target_image=image_name $tag=default_tag:
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
-    mapfile -t scripts < <(find build_files tests -name '*.sh'; find system_files/usr/libexec -type f; echo system_files/usr/lib/os-session-select)
+    # Shell scripts only: /usr/libexec also holds Python programs (nebula-os-chooser).
+    mapfile -t scripts < <(find build_files tests -name '*.sh'
+        for f in system_files/usr/libexec/* system_files/usr/lib/os-session-select; do
+            [[ -f "$f" ]] && head -n 1 "$f" | grep -qE '^#!.*\b(ba|da|k)?sh\b' && echo "$f"
+        done)
     if command -v shellcheck &> /dev/null; then
         shellcheck "${scripts[@]}"
     else
