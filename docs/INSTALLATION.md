@@ -23,9 +23,12 @@ The NebulaOS installer puts NebulaOS on the computer in one go. Bazzite is alrea
 
 1. Download the ISO: **Actions › Build disk images ›** the newest successful run **› Artifacts › nebula-os-latest-anaconda-iso** (about 7.5 GB; you need to be signed in to GitHub, and artifacts are kept for 7 days). For the NVIDIA edition, run the workflow with the `nebula-os-nvidia` edition.
 2. Write it to a USB stick of 16 GB or more (for example with Fedora Media Writer), and boot the computer from it.
-3. Choose **Install NebulaOS**, then **Installation Destination**: pick the disk and press **Done**. **The installer erases the disk you choose**, so back up first. Nothing is written before you press **Begin Installation**.
+3. Choose **Install NebulaOS**. In the installer:
+   - **Installation Destination**: pick the disk and press **Done**. **The installer erases the disk you choose**, so back up first. Nothing is written before you press **Begin Installation**.
+   - **User Creation**: enter your name, user name and password, keep **administrative privileges** ticked, and press **Done**. This is your account; there is no separate setup after the first boot.
+   - **Time & Date**: pick your time zone and press **Done**.
 4. When it says **Complete!**, press **Reboot System** and remove the USB stick.
-5. GNOME then asks you to create your user. After that, choose your mode on the login screen (see [First boot](#first-boot)).
+5. Log in with the account you created, and choose your mode on the login screen (see [First boot](#first-boot)).
 6. Turn on signature-checked updates once: `ujust nebula-enable-signed-updates`, then restart.
 
 **Secure Boot:** Bazzite's kernel is signed with Universal Blue's key. With Secure Boot on, either turn it off before installing, or after the first boot run `ujust enroll-secure-boot-key`, restart, choose **Enroll MOK**, enter `universalblue`, and turn Secure Boot back on.

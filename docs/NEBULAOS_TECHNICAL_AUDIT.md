@@ -57,7 +57,7 @@ This change fixes every verified defect below, adds the test and security gates 
 | The first `bootc switch` to NebulaOS is unverified, because the host does not trust the NebulaOS key yet. | This is inherent to switching from another image. | [INSTALLATION.md](INSTALLATION.md) now verifies the signature with `cosign verify` *before* switching. After the switch, `ujust nebula-enable-signed-updates` turns enforcement on. |
 | `cosign.key` is passwordless and was stored unencrypted in the project folder. | CI needs it as a secret. | Move the local copy to a password manager or offline backup and delete it from disk. See [SECURITY.md](../SECURITY.md). A backup key (`keyPaths`) would make rotation easier. |
 | The bootc-image-builder image and the base use floating tags. | Following Bazzite daily is intended. | The base digest is now recorded in every image. Pinning the builder image is a Phase 6 task. |
-| ISO installation and VM boot are untested. | This needs root or a VM with installation rights. | They are documented as experimental. VM boot tests are on the roadmap (Phase 6). |
+| ISO installation and VM boot were untested. | This needs root or a VM with installation rights. | Tested in a VM on 2026-11-22: the ISO boots with UEFI and installs, and (after a fix) the installer creates the user account. The disk-image workflow now boots the qcow2 in QEMU and checks that the login screen appears. Real hardware is still untested. |
 | Dual-GPU laptops can show a black screen in Steam Gaming Mode (a known gamescope limitation, improved by CardWire in Bazzite 44). | Upstream. | Work Mode is always available at the login screen. `nebula hw` reports hybrid setups. |
 | `ujust restore-gnome-de-settings` (Bazzite) resets the dock and wallpaper to Bazzite's values. | It is a Bazzite recipe. | Documented in [TROUBLESHOOTING.md](TROUBLESHOOTING.md). |
 
@@ -93,7 +93,7 @@ The rule for NebulaOS: **reuse what Bazzite and Universal Blue already do well, 
 | Unified monitoring data | **Done (CLI v1):** `nebula status` and `--json` for future front ends |
 | Updates: check, history, apply, rollback with confirmation | **Done (CLI v1):** `nebula update …`. uupd stays the updater. |
 | Stable and testing channels | **Done:** `main` publishes `latest`, `dev` publishes `testing` |
-| CI: lint, tests, image tests, signing verification, security scan | **Done.** VM boot tests are still missing. |
+| CI: lint, tests, image tests, signing verification, security scan | **Done.** A boot test (the qcow2 in QEMU, until the login screen appears) runs in the disk-image workflow; logging in and switching modes are not covered by CI yet. |
 | NVIDIA edition | **Builds in CI** (`nebula-os-nvidia`). Untested on NVIDIA hardware. |
 | Control Center GUI, Gaming Optimizer, Display Lab, Visual Quality Engine, Benchmark, Dev Hub, Creative profiles, GTK, icon and cursor themes, boot branding | **Planned:** [ROADMAP.md](ROADMAP.md) |
 | Own app store | **Dropped** as a duplicate of Bazaar |

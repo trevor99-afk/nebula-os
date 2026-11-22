@@ -11,6 +11,7 @@
 Standard library only, so it runs inside the NebulaOS image or on the host.
 """
 import json
+import os
 import socket
 import sys
 import time
@@ -73,9 +74,11 @@ def main(argv):
     if action == "shot":
         q.cmd("screendump", filename=rest[0], format="png")
     elif action == "type":
+        # A guest UI under load drops keys that arrive too fast; 0.12 s apart is reliable.
+        delay = float(os.environ.get("NEBULA_VM_TYPE_DELAY", "0.12"))
         for ch in rest[0]:
             q.keys(key_for(ch))
-            time.sleep(0.03)
+            time.sleep(delay)
     elif action == "key":
         for combo in rest:
             q.keys(combo.split("-"))
