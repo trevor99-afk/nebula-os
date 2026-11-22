@@ -16,7 +16,7 @@ if [[ -z "$disk" ]]; then
     echo "No qcow2 disk image found in $artifact_dir" >&2
     exit 1
 fi
-[[ -r /dev/kvm ]] || { echo "/dev/kvm is unavailable" >&2; exit 1; }
+[[ -r /dev/kvm && -w /dev/kvm ]] || { echo "/dev/kvm is missing or not readable and writable: $(ls -l /dev/kvm 2>&1)" >&2; exit 1; }
 
 ovmf_code=
 ovmf_vars_template=

@@ -170,6 +170,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 ovmf tesseract-ocr
 
+      # The runner has /dev/kvm, but only root and the kvm group can open it
+      # (run 45043945536). Open it to the runner user; GitHub discards the runner afterwards.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
       - name: Boot image and check login screen
         run: bash tests/vm/ci-boot.sh boot-artifact boot-results
 
