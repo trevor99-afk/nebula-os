@@ -31,8 +31,16 @@ case "$side" in
             echo "Could not read the login mode from AccountsService." >&2
             exit 1
         fi
-        # Any Steam Gaming Mode session (plain or with OpenGamepadUI) counts as gaming.
-        if [[ "$current" == gamescope-session* ]]; then echo "gaming"; else echo "work"; fi
+        case "$current" in
+            # Steam Gaming Mode, plain or with the OpenGamepadUI overlay.
+            gamescope-session*) echo "gaming" ;;
+            # GNOME. No saved session yet: GDM falls back to the "gnome" session.
+            gnome | gnome-wayland | gnome-xorg | "") echo "work" ;;
+            *)
+                echo "The saved login session \"$current\" is neither NebulaOS Gaming Mode nor Work Mode." >&2
+                exit 1
+                ;;
+        esac
         exit 0
         ;;
     *)

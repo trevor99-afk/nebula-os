@@ -17,6 +17,8 @@ just validate      # config files: TOML, Flatpak app IDs, systemd units
 just lint          # shellcheck (uses a container if shellcheck is not installed)
 just build         # build localhost/nebula-os:latest (NEBULA_PULL=never to skip pulling the base)
 just test-image    # run the image tests inside the built image
+tests/vm/vm.sh install ~/Downloads/install.iso   # install the ISO in a test VM (KVM, no root)
+tests/vm/vm.sh boot                              # boot the installed VM; `tests/vm/vm.sh shot FILE.png` takes a screenshot
 ```
 
 CI runs all of these. It also runs hadolint and actionlint, and publishes nothing unless they pass.

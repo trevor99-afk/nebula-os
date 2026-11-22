@@ -12,16 +12,19 @@ Every phase ends with tests, documentation, and a release to the `testing` chann
 - [x] **Nebula Hardware Detection Engine v1** (`nebula hw`): GPUs with vendor backends (AMD, Intel, NVIDIA), Vulkan, OpenGL, VA-API, architecture, hybrid graphics (CardWire), displays with EDID, current mode, VRR and HDR, using the five-level capability model
 - [x] **Nebula System Doctor v1** (`nebula doctor`): 12 read-only checks, suggested fixes, exportable report
 - [x] **Unified monitoring backend v1** (`nebula status --json`) and update management (`nebula update check|history|apply|rollback`)
-- [x] Mode choice at every login (NebulaOS Gaming Mode / Work Mode) and working mode switching on Bazzite DX GNOME
+- [x] Mode choice at every login (NebulaOS Gaming Mode / Work Mode) and mode switching on Bazzite DX GNOME: implemented and covered by image and unit tests; switching in a running system is not verified yet
+- [x] Installer ISO: boots with UEFI and installs in a virtual machine (2026-11-22)
 - [x] NVIDIA edition built in CI (`nebula-os-nvidia`)
 - [ ] Run the update and rollback runbook in a VM and on the reference laptop, and record the results ([RELEASE_PROCESS.md](RELEASE_PROCESS.md#verifying-updates-and-rollback))
 - [ ] Move `cosign.key` to an offline backup; add a backup signing key for rotation
+- [ ] Boot test in CI: install or boot the image in QEMU (`tests/vm/`), log in to both modes, switch in both directions, and run an update and a rollback
+- [ ] Security scan policy: decide which Trivy findings block a release (findings inherited from the Bazzite base are tracked, not blocking)
 
 ## Phase 2: Nebula Control Center and System Doctor GUI
 
 A native GTK 4 / libadwaita app (Python + PyGObject, both already in the base), dark by default, using the NebulaOS palette (Deep Space `#090B14`, Nebula Blue `#4263EB`, Cosmic Purple `#805AD5`, Cyan `#22D3EE`, Surface `#151A2B`, Text `#F1F5F9`).
 
-- Dashboard over the `nebula` backend: CPU, GPU, RAM, storage, temperatures, network, uptime, version, updates, power profile, GPU driver, health. It refreshes live without waking sleeping GPUs.
+- Dashboard over the `nebula` backend: CPU, GPU, RAM, storage, temperatures, network, uptime, version, updates, power profile, GPU driver, health. It refreshes live without waking sleeping GPUs, and reads an idle dGPU no more often than its autosuspend delay (every read keeps it awake; see [BACKEND_GAMING_AUDIT.md](BACKEND_GAMING_AUDIT.md) P6).
 - Management actions through the existing tools: updates (uupd / `ujust update`), deployments and rollback (rpm-ostree D-Bus, polkit), services (systemd), apps (opens Bazaar and Bazzite Portal), hybrid graphics (opens CardWire), logs and boot info.
 - System Doctor page: run checks, show fixes, export a report. Fixes are never applied automatically; each one is a button that shows the command and asks for confirmation.
 - Rules: the GUI never runs as root. Privileged operations go through polkit-checked D-Bus calls of the underlying tools (rpm-ostree, systemd, AccountsService). Any NebulaOS helper must have a fixed, allow-listed set of actions.

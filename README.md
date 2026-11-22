@@ -38,17 +38,20 @@ The planned **Nebula Control Center, Gaming Optimizer, Display Lab and Dev Hub**
 
 ## Install
 
-Install [Bazzite](https://bazzite.gg) first, then switch to NebulaOS. Verify the image signature before switching:
+**One step, from the ISO:** NebulaOS installs directly, with Bazzite already inside (Steam, drivers, Gaming Mode, updates). Download the installer ISO from **Actions › Build disk images** (artifact `nebula-os-latest-anaconda-iso`), write it to a USB stick and boot from it. The ISO installs successfully in a virtual machine; it has not been installed on real hardware yet, so try it in GNOME Boxes first.
+
+**Already on Bazzite?** Switch to the exact image you verified, then turn on signed updates:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/trevor99-afk/nebula-os/main/cosign.pub
-cosign verify --key cosign.pub ghcr.io/trevor99-afk/nebula-os:latest
-sudo bootc switch ghcr.io/trevor99-afk/nebula-os:latest   # NVIDIA: nebula-os-nvidia
-systemctl reboot
+IMAGE=ghcr.io/trevor99-afk/nebula-os   # NVIDIA: ghcr.io/trevor99-afk/nebula-os-nvidia
+DIGEST=$(skopeo inspect --format '{{.Digest}}' "docker://$IMAGE:latest")
+cosign verify --key cosign.pub "$IMAGE@$DIGEST"
+sudo bootc switch "$IMAGE@$DIGEST" && systemctl reboot
 ujust nebula-enable-signed-updates                        # after the reboot, then reboot again
 ```
 
-Your files and apps stay; the previous system remains in the boot menu. Full guide: [docs/INSTALLATION.md](docs/INSTALLATION.md).
+Full guide: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 | Edition | Image |
 | --- | --- |

@@ -270,7 +270,7 @@ generate-build-tags $target_image=image_name $tag=default_tag:
     DATE=$(date +%Y%m%d)
     BUILD_TAGS=("${tag}-${DATE}")
     if git rev-parse -q --verify HEAD &>/dev/null && [[ -z "$(git status -s)" ]]; then
-        BUILD_TAGS+=("${tag}-$(git rev-parse --short HEAD)")
+        BUILD_TAGS+=("${tag}-${DATE}-$(git rev-parse --short HEAD)")
     fi
     BUILD_TAGS+=("${tag}")
 

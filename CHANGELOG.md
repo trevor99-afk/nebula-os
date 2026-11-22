@@ -11,6 +11,12 @@ All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `
 - A GPU drawing 0 W was reported as unknown. Two identical GPUs shared one Vulkan result. On Ryzen CPUs with a temperature offset, the CPU temperature read high (Tctl instead of Tdie). The total network rate counted container and VM traffic several times.
 - The installer ISO and VM image builds failed: the builder could not see Fedora's repositories (dnf5 keeps them in `/usr/share/dnf5/repos.d`), and Ubuntu's AppArmor blocked its sandbox.
 
+### Changed
+- Installing: the ISO is now the main way to install NebulaOS (one step, Bazzite included). Switching from Bazzite verifies the image digest and switches to that same digest.
+- Commit tags carry the date (`<channel>-<date>-<commit>`), so a daily rebuild of the same commit no longer replaces an earlier build's tag.
+- CI: checkouts keep no git credentials, and pull requests skip rechunking (a privileged step only published images need).
+- `nebula-os-switch-side status` reports an unknown saved session as an error instead of Work Mode.
+
 ### Added
 - [Backend and Gaming Mode audit](docs/BACKEND_GAMING_AUDIT.md), with the Legion 5 15ACH6A as the primary target.
 

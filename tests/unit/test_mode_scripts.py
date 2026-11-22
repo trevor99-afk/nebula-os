@@ -14,7 +14,7 @@ UID = str(os.getuid())
 # Stubs record every call in $LOG. loginctl knows two sessions of this user:
 # c2 is the graphical (Gaming Mode) session, c7 a text console.
 STUBS = {
-    "busctl": 'echo "busctl $*" >> "$LOG"; [[ "$1" == get-property ]] && echo "s \\"gnome\\""; exit 0',
+    "busctl": 'echo "busctl $*" >> "$LOG"; [[ "$1" == get-property ]] && echo "s \\"${SESSION-gnome}\\""; exit 0',
     "loginctl": f'''echo "loginctl $*" >> "$LOG"
 case "$1" in
     list-sessions) printf '  c2 {UID} tester seat0 1234 user tty2 no -\\n  c7 {UID} tester seat0 2345 user tty3 no -\\n  c9 4242 other seat0 3456 user tty4 no -\\n' ;;
@@ -84,9 +84,21 @@ class SwitchNow(unittest.TestCase):
 
 
 class Status(unittest.TestCase):
-    def test_status_reads_accountsservice(self):
-        proc, _ = run_switch("status")
-        self.assertEqual((proc.returncode, proc.stdout.strip()), (0, "work"))
+    def status(self, session):
+        proc, _ = run_switch("status", SESSION=session)
+        return proc.returncode, proc.stdout.strip()
+
+    def test_known_sessions(self):
+        self.assertEqual(self.status("gnome"), (0, "work"))
+        self.assertEqual(self.status("gamescope-session-steam"), (0, "gaming"))
+        self.assertEqual(self.status("gamescope-session-ogui-steam"), (0, "gaming"))
+
+    def test_no_saved_session_is_work(self):
+        # GDM falls back to the "gnome" session when the user never chose one.
+        self.assertEqual(self.status(""), (0, "work"))
+
+    def test_unknown_session_is_an_error_not_work(self):
+        self.assertEqual(self.status("plasma"), (1, ""))
 
 
 if __name__ == "__main__":

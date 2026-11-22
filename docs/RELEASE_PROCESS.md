@@ -7,7 +7,7 @@
 | testing | `:testing` | branch `dev` | every push to `dev` |
 | stable | `:latest` | branch `main` | every merge to `main`, and daily at 10:05 UTC to pick up Bazzite's updates |
 
-Each build also gets `<channel>-<YYYYMMDD>` and `<channel>-<commit>` tags, so any recent build can be selected exactly (`sudo bootc switch ghcr.io/trevor99-afk/nebula-os:latest-20261121`).
+Each build also gets `<channel>-<YYYYMMDD>` and `<channel>-<YYYYMMDD>-<commit>` tags, so any recent build can be selected exactly (`sudo bootc switch ghcr.io/trevor99-afk/nebula-os:latest-20261121`).
 
 ## What CI checks before publishing
 
