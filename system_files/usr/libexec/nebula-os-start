@@ -76,6 +76,10 @@ start_session() {
     desktop=${desktop%;}
     export XDG_SESSION_DESKTOP=${file%.desktop} DESKTOP_SESSION=${file%.desktop}
     export XDG_CURRENT_DESKTOP=${desktop//;/:}
+    # Services started by the user manager (including parts of gamescope-session-plus)
+    # must see the selected mode, not the outer NebulaOS chooser session.
+    systemctl --user import-environment XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DESKTOP_SESSION \
+        2>/dev/null || true
     read -ra cmd <<<"$exec_line" # these Exec lines have no quoting
     log "starting ${file%.desktop}: ${cmd[*]}"
     "${cmd[@]}"
@@ -83,7 +87,6 @@ start_session() {
 
 message=""
 choice=$(take_next)
-started=0
 while true; do
     if [[ -z "$choice" ]]; then
         choice=$(run_chooser "$message") || choice=""
@@ -102,8 +105,9 @@ while true; do
         poweroff) systemctl poweroff; exit 0 ;;
     esac
 
-    ((started)) && reset_user_environment
-    started=1
+    # The chooser and the mode it starts share one login. Clear display/session
+    # state left by an earlier session before every handoff, including the first.
+    reset_user_environment
     ran=$choice
     began=$SECONDS
     if [[ "$ran" == gaming ]]; then

@@ -119,6 +119,17 @@ class Compositor(unittest.TestCase):
     def test_not_gnome(self):
         self.assertIsNone(display.mutter_state(FakeRunner()))
 
+    def test_malformed_nested_state_is_unknown(self):
+        malformed = (
+            json.dumps({"data": [1, [], [[0]], {}]}),
+            json.dumps({"data": [1, [[[
+                "DP-1", "NEB", "0x1234", "0x00000000"
+            ], [["mode", 1920, 1080, "not-a-refresh-rate", 1.0, [1.0], {}]], {}]], [], {}]}),
+        )
+        for raw in malformed:
+            state = display.mutter_state(FakeRunner({("busctl", "--user"): ok(raw)}))
+            self.assertIsNone(state, raw)
+
 
 class Connectors(unittest.TestCase):
     def test_connected_outputs_only(self):

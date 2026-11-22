@@ -2,9 +2,17 @@
 
 ## Available today
 
+### Choosing a mode
+
+New accounts see a full-screen chooser after login, with Gaming Mode, Work Mode, log out, restart and power off. It highlights the last mode selected through the chooser. Use a mouse, arrow keys and Enter, or a controller's D-pad/left stick and A button. Controller access to evdev devices has not been verified on hardware; see [the gaming audit](BACKEND_GAMING_AUDIT.md#full-screen-chooser-handoff-not-verified-in-a-booted-image).
+
+The login screen's gear menu starts Gaming Mode or Work Mode directly. To turn the chooser on for an account with a saved login mode, run `ujust nebula-mode chooser`; use `ujust nebula-mode chooser-off` to turn it off. `ujust nebula-mode gaming` and `ujust nebula-mode work` select a mode for the next login, or skip the chooser once when it is enabled. Add `now` to end the current graphical session and switch immediately.
+
 ### NebulaOS Gaming Mode
 
-Choose **NebulaOS Gaming Mode** on the login screen for Steam's full-screen, controller-friendly Gaming Mode (Steam in gamescope, from Bazzite). The Quick Access menu (… button) has per-game performance settings: frame limit, FSR, TDP where supported, and the performance overlay. Steam's **Power › Switch to Desktop** takes you to Work Mode.
+Choose **Gaming Mode** in the full-screen menu or **NebulaOS Gaming Mode** from the login screen's gear menu for Steam's full-screen mode (Steam in gamescope, from Bazzite). The Quick Access menu (… button) has per-game performance settings: frame limit, FSR, TDP where supported, and the performance overlay. Steam's **Power › Switch to Desktop** takes you to Work Mode.
+
+If Gaming Mode exits within a minute, the chooser offers Work Mode and explains that Gaming Mode stopped quickly. A very early failure is not proof that Gaming Mode is supported by a particular GPU; NVIDIA startup and the automatic return to the chooser are unverified in a built image and on hardware.
 
 *NebulaOS Gaming Mode (with quick settings overlay)* is Bazzite's variant with the OpenGamepadUI overlay, mainly useful on handhelds.
 

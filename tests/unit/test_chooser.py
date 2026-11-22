@@ -105,7 +105,7 @@ def run_start(choices, state=None, **env):
             "cage": FAKE_CAGE,
             "fake-gaming": FAKE_SESSION.format(name="gaming", var="GAMING_ACTION"),
             "fake-gnome": FAKE_SESSION.format(name="gnome", var="GNOME_ACTION"),
-            "systemctl": '#!/usr/bin/bash\necho "systemctl $*" >> "$LOG"\n',
+            "systemctl": '#!/usr/bin/bash\necho "systemctl $* CURRENT=${XDG_CURRENT_DESKTOP:-} SESSION=${XDG_SESSION_DESKTOP:-} DESKTOP=${DESKTOP_SESSION:-}" >> "$LOG"\n',
         }
         for name, body in scripts.items():
             (bins / name).write_text(body)
@@ -138,6 +138,9 @@ class SessionWrapper(unittest.TestCase):
         proc, calls, _ = run_start(["work"])
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("gnome XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_DESKTOP=gnome", calls)
+        self.assertIn("systemctl --user import-environment XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP DESKTOP_SESSION CURRENT=GNOME SESSION=gnome DESKTOP=gnome", calls)
+        self.assertTrue(any(c.startswith("systemctl --user unset-environment ") for c in calls), calls)
+        self.assertTrue(any(c.startswith("systemctl --user stop xdg-desktop-portal.service ") for c in calls), calls)
         self.assertEqual(sum(c.startswith("cage ") for c in calls), 1)
 
     def test_chooser_runs_without_portals_and_in_software(self):
@@ -165,6 +168,10 @@ class SessionWrapper(unittest.TestCase):
         self.assertEqual(started(calls), ["gaming", "gnome"])
         self.assertEqual(sum(c.startswith("cage ") for c in calls), 1)
         self.assertTrue(any("unset-environment" in c for c in calls), "the old mode's variables are cleared")
+        imports = [c for c in calls if "import-environment" in c]
+        self.assertEqual(len(imports), 2, imports)
+        self.assertIn("CURRENT=gamescope SESSION=gamescope-session-steam", imports[0])
+        self.assertIn("CURRENT=GNOME SESSION=gnome", imports[1])
         self.assertFalse(left)
 
     def test_broken_chooser_falls_back_to_work_mode(self):

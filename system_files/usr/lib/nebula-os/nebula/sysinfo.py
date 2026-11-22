@@ -66,13 +66,17 @@ def os_info(root: str = "/") -> Dict[str, Optional[str]]:
     build = read_text(under(root, f"{NEBULA_SHARE}/build-info.json"))
     if build:
         try:
-            info["build"] = json.loads(build)
+            parsed = json.loads(build)
+            if isinstance(parsed, dict):
+                info["build"] = parsed
         except ValueError:
             pass
     image_info = read_text(under(root, "usr/share/ublue-os/image-info.json"))
     if image_info:
         try:
-            info["edition"] = json.loads(image_info).get("image-name")
+            parsed = json.loads(image_info)
+            if isinstance(parsed, dict):
+                info["edition"] = parsed.get("image-name")
         except ValueError:
             pass
     info["kernel"] = os.uname().release if root == "/" else None

@@ -4,8 +4,8 @@ Thanks for helping. NebulaOS is built on Bazzite DX: before adding anything, che
 
 ## Branches and channels
 
-- `dev`: development. Every push builds and publishes the **testing** channel (`:testing`).
-- `main`: stable. Changes arrive only through pull requests from `dev` that pass CI. Pushes and the daily rebuild publish `:latest`.
+- `dev`: development. Pushes that change image inputs build and publish the **testing** channel (`:testing`); a manual workflow run on `dev` does too. Docs-only pushes are ignored.
+- `main`: stable. Changes arrive only through pull requests from `dev` that pass CI. Image-affecting pushes and manual workflow runs on `main`, plus the daily rebuild, publish `:latest`; docs-only pushes are ignored.
 
 ## Working on the project
 
@@ -21,7 +21,7 @@ tests/vm/vm.sh install ~/Downloads/install.iso   # install the ISO in a test VM 
 tests/vm/vm.sh boot                              # boot the installed VM; `tests/vm/vm.sh shot FILE.png` takes a screenshot
 ```
 
-CI runs all of these. It also runs hadolint and actionlint, and publishes nothing unless they pass.
+The container build workflow runs `just check`, `just lint`, `just validate` and `just test`, then builds each edition and runs `just test-image` before publishing. It also runs hadolint and actionlint. The `tests/vm/vm.sh` install and boot commands above are manual; the separate, manually dispatched disk-image workflow boots a qcow2 only as far as the GDM login screen.
 
 To try the backend on your running system without building an image:
 

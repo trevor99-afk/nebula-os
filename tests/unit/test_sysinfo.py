@@ -29,6 +29,17 @@ class OsRelease(unittest.TestCase):
         self.assertEqual(info["build"]["git_sha"], "abc")
         self.assertEqual(info["edition"], "bazzite-dx-gnome")
 
+    def test_os_info_ignores_valid_json_with_wrong_top_level_type(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write(root / "usr/lib/os-release", 'NAME="NebulaOS"\n')
+            for malformed in ("[]", "null", "42", '"not an object"'):
+                write(root / "usr/share/nebula-os/build-info.json", malformed)
+                write(root / "usr/share/ublue-os/image-info.json", malformed)
+                info = sysinfo.os_info(tmp)
+                self.assertNotIn("build", info, malformed)
+                self.assertIsNone(info["edition"], malformed)
+
 
 class Proc(unittest.TestCase):
     def test_cpu_usage(self):

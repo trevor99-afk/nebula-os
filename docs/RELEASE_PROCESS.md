@@ -4,14 +4,16 @@
 
 | Channel | Tag | Built from | When |
 | --- | --- | --- | --- |
-| testing | `:testing` | branch `dev` | every push to `dev` |
-| stable | `:latest` | branch `main` | every merge to `main`, and daily at 10:05 UTC to pick up Bazzite's updates |
+| testing | `:testing` | branch `dev` | image-affecting pushes or a manual workflow run on `dev` |
+| stable | `:latest` | branch `main` | image-affecting pushes or a manual workflow run on `main`, and daily at 10:05 UTC to pick up Bazzite's updates |
+
+Pushes that change only Markdown or files under `docs/` are ignored by the container-build workflow. Pull requests to `main` still run checks and image tests, but do not publish.
 
 Each build also gets `<channel>-<YYYYMMDD>` and `<channel>-<YYYYMMDD>-<commit>` tags, so any recent build can be selected exactly (`sudo bootc switch ghcr.io/trevor99-afk/nebula-os:latest-20261121`).
 
 ## What CI checks before publishing
 
-1. `checks` job: just syntax, shellcheck, config validation, unit tests, hadolint, actionlint.
+1. `checks` job: `just check` (Justfile syntax), shellcheck, config validation, unit tests, hadolint, actionlint.
 2. Build each edition (`nebula-os`, `nebula-os-nvidia`), including `bootc container lint`.
 3. **Image tests** (`tests/image/test-image.sh`) inside the built image.
 4. Rechunk, push the dated and commit tags, **sign** by digest, **verify** the signature, and only then move the channel tag.
@@ -20,13 +22,36 @@ A failure at any step means nothing is published to that channel.
 
 ## Booting a disk image in CI
 
-The **Build disk images** workflow boots each manually built qcow2 on an Ubuntu GitHub runner with KVM and UEFI, then checks its GDM screenshot for the NebulaOS “Choose your mode” banner. A boot failure uploads the screenshot and QEMU logs as a run artifact. Start it from **Actions → Build disk images → Run workflow**; the boot check runs automatically after the disk artifacts are built. It is skipped when uploading directly to S3.
+The **Build disk images** workflow boots its qcow2 on an Ubuntu GitHub runner with KVM and UEFI, then uses OCR on a GDM screenshot to check for the text “Choose Gaming Mode.” This only verifies that the login screen appeared; it does not log in or exercise either session. A boot failure uploads the screenshot and QEMU logs as a run artifact. Start it from **Actions → Build disk images → Run workflow**; the boot check runs automatically after the disk artifacts are built. It is skipped when uploading directly to S3.
 
 ## Promoting testing to stable
 
 1. Merge changes into `dev`; CI publishes `:testing`.
 2. Install `:testing` on at least one machine per affected area (both modes, the changed tools) and run the checks below.
 3. Open a pull request `dev` → `main`, update `CHANGELOG.md`, and merge when CI is green.
+
+## Per-release validation checklist
+
+Copy this record into the release pull request or release notes for the exact image being promoted. Record a failure or **Not tested** where a step cannot be completed; a Bazzite result is not evidence for NebulaOS.
+
+```text
+Release/tag:
+Edition and image reference:
+Image digest (sha256):
+Test date:
+Test target: VM or physical hardware
+VM configuration or hardware model:
+CI run, logs, or test report:
+```
+
+- [ ] Verify the image signature for the recorded digest.
+- [ ] Boot that exact digest and record the boot result.
+- [ ] Log in and record Work Mode and Gaming Mode startup results.
+- [ ] Switch Work → Gaming → Work and record both results.
+- [ ] Stage an update, restart, and record which deployment boots.
+- [ ] Roll back, restart, and record that the previous deployment boots and the newer deployment remains available.
+
+Use the [update and rollback procedure](#verifying-updates-and-rollback) for the commands and expected deployment behavior. Do not mark an unperformed step as passed.
 
 ## Verifying updates and rollback
 

@@ -201,7 +201,7 @@ def print_doctor(results: List[doctor.Check]) -> None:
     print({"ok": "Everything looks good.", "warn": "Some things need attention.", "fail": "Problems found."}[status])
 
 
-def write_report(path: str, results: List[doctor.Check], include_logs: bool) -> None:
+def write_report(path: str, results: List[doctor.Check], include_logs: bool, quiet: bool = False) -> None:
     data = {
         "schema": "nebula.doctor-report/v1",
         "created": time.strftime("%Y-%m-%d %H:%M:%S %Z"),
@@ -232,8 +232,9 @@ def write_report(path: str, results: List[doctor.Check], include_logs: bool) -> 
         except FileNotFoundError:
             pass
         raise
-    print(f"Report written to {path}.")
-    if include_logs:
+    if not quiet:
+        print(f"Report written to {path}.")
+    if include_logs and not quiet:
         print("It contains this boot's error log, which can include names of devices, networks and users. "
               "Read it before sharing it.")
 
@@ -286,7 +287,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             print_doctor(results)
         if args.report:
             try:
-                write_report(args.report, results, args.include_logs)
+                write_report(args.report, results, args.include_logs, quiet=args.json)
             except OSError as err:
                 print(f"Could not write the report to {args.report}: {err.strerror or err}", file=sys.stderr)
                 return 2

@@ -75,6 +75,12 @@ class Status(unittest.TestCase):
                 "cached_update": None}
         self.assertEqual(updates.check_remote(info, FakeRunner())["state"], "unsupported")
 
+    def test_empty_successful_registry_response_is_an_error(self):
+        info = self.info()
+        result = updates.check_remote(info, FakeRunner({("skopeo",): ok("\n")}))
+        self.assertEqual(result["state"], "error")
+        self.assertIn("no image digest", result["message"])
+
 
 class Confirmation(unittest.TestCase):
     def test_apply_cancelled_does_nothing(self):

@@ -121,15 +121,16 @@ class Status(unittest.TestCase):
 class SteamHooks(unittest.TestCase):
     """Steam's "Switch to Desktop" hook and the steamosctl shim call nebula-os-switch-side."""
 
-    def run_hook(self, script, *args, status="work"):
+    def run_hook(self, script, *args, status="work", status_exit=0):
         with tempfile.TemporaryDirectory() as tmp:
             stub = Path(tmp) / "switch-side"
-            stub.write_text('#!/usr/bin/bash\necho "$*" >> "$LOG"\n[[ "$1" == status ]] && echo "$STATUS"\nexit 0\n')
+            stub.write_text('#!/usr/bin/bash\necho "$*" >> "$LOG"\n[[ "$1" == status ]] && echo "$STATUS"\nexit "${STATUS_EXIT:-0}"\n')
             stub.chmod(0o755)
             log = Path(tmp) / "log"
             log.touch()
             proc = subprocess.run(["bash", str(helpers.ROOT / script), *args], capture_output=True, text=True,
                                   timeout=20, env={"PATH": "/usr/bin:/bin", "LOG": str(log), "STATUS": status,
+                                                   "STATUS_EXIT": str(status_exit),
                                                    "NEBULA_SWITCH_SIDE": str(stub)})
             return proc, log.read_text().splitlines()
 
@@ -146,6 +147,19 @@ class SteamHooks(unittest.TestCase):
         self.assertEqual(self.run_hook(shim, "set-default-login-mode", "game")[1], ["gaming"])
         self.assertEqual(self.run_hook(shim, "get-default-login-mode", status="gaming")[0].stdout.strip(), "game")
         self.assertEqual(self.run_hook(shim, "get-default-login-mode", status="work")[0].stdout.strip(), "desktop")
+
+    def test_get_default_mode_does_not_guess_when_status_fails(self):
+        shim = "system_files/usr/libexec/nebula-os-steamosctl"
+        proc, calls = self.run_hook(shim, "get-default-login-mode", status_exit=1)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(calls, ["status"])
+
+    def test_unknown_steamosctl_command_is_rejected(self):
+        shim = "system_files/usr/libexec/nebula-os-steamosctl"
+        proc, calls = self.run_hook(shim, "unsupported-command")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("is not supported", proc.stderr)
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":
@@ -211,3 +225,12 @@ class Chooser(unittest.TestCase):
         proc, _ = run_switch("gaming", SESSION="nebula-os", HOME=home)
         self.assertEqual(proc.returncode, 1)
         self.assertFalse(target.exists())
+
+
+class FlatpakInstallerArguments(unittest.TestCase):
+    def test_unknown_option_fails_before_touching_system_state(self):
+        script = helpers.ROOT / "system_files/usr/libexec/nebula-os-flatpak-setup"
+        proc = subprocess.run(["bash", str(script), "--unexpected"], capture_output=True, text=True, timeout=10)
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("Usage:", proc.stderr)
+        self.assertEqual(proc.stdout, "")

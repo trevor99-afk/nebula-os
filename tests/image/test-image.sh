@@ -90,6 +90,20 @@ check "dock includes Switch to Gaming Mode" grep -q 'nebula-os-switch-to-gaming.
 check "default wallpaper is NebulaOS" bash -c 'gsettings get org.gnome.desktop.background picture-uri-dark 2>/dev/null | grep -q nebula-os'
 check "Switch to Gaming Mode launcher is valid" desktop-file-validate /usr/share/applications/nebula-os-switch-to-gaming.desktop
 check "NebulaOS logo is in the icon cache" grep -qa 'nebula-os-logo' /usr/share/icons/hicolor/icon-theme.cache
+check "Logo Menu extension is installed and enabled" bash -c '
+    test -d /usr/share/gnome-shell/extensions/logomenu@aryan_k &&
+    gsettings get org.gnome.shell enabled-extensions | grep -Fq "logomenu@aryan_k"'
+# The extension's schema is not installed system-wide, so the setting lives in dconf.
+check "Logo Menu uses the NebulaOS logo" bash -c '
+    test -s /usr/share/icons/hicolor/scalable/apps/nebula-os-logo.svg &&
+    grep -qa "nebula-os-logo.svg" /etc/dconf/db/distro &&
+    ! grep -q "logo-menu" /usr/share/glib-2.0/schemas/zz1-nebula-os.gschema.override'
+check "MangoHud preset uses the NebulaOS palette" bash -c '
+    grep -qx "background_color=090B14" /usr/share/nebula-os/MangoHud.conf &&
+    grep -qx "text_color=F1F5F9" /usr/share/nebula-os/MangoHud.conf &&
+    grep -qx "gpu_color=4263EB" /usr/share/nebula-os/MangoHud.conf &&
+    grep -qx "cpu_color=805AD5" /usr/share/nebula-os/MangoHud.conf &&
+    grep -qx "vram_color=22D3EE" /usr/share/nebula-os/MangoHud.conf'
 # Every dock app must exist after a fresh ISO install: shipped in the image, or installed
 # on first boot from the app bundle. Firefox was pinned but missing (VM install, 2026-11-22).
 check "every dock app is shipped or in the app bundle" bash -c '

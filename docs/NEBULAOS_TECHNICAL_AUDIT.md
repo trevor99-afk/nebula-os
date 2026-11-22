@@ -6,7 +6,7 @@ Date: 2026-11-21 · Scope: the `nebula-os` repository at commit `aaf9cf6` (branc
 
 - Four independent read-only reviews, each with one lens: build and CI/supply chain, runtime integration with the Bazzite ecosystem, security and privacy, and product gaps against the NebulaOS master plan.
 - Every finding needed evidence: a file and line, a command and its output, or a quoted upstream source. Before any fix, findings were re-checked by hand against the built image (`podman run localhost/nebula-os:latest …`) and against the machine the project is developed on (Bazzite GNOME, Lenovo Legion 5 15ACH6A, Ryzen 7 5800H with Radeon Vega iGPU and RX 6600M).
-- Not verifiable in this environment, so not claimed: booting the image, Steam Gaming Mode on real hardware, switching modes in a live session, and an ISO installation. These are listed under [Unverified](#unverified-needs-a-real-boot).
+- At the time of this audit (2026-11-21), booting a NebulaOS image, Steam Gaming Mode on real hardware, switching modes in a live session, and ISO installation were not verified. A later VM install on 2026-11-22 is recorded below; the CI qcow2 check only reaches GDM. Neither establishes real-hardware support or an interactive session switch.
 
 ## Summary
 
@@ -57,7 +57,7 @@ This change fixes every verified defect below, adds the test and security gates 
 | The first `bootc switch` to NebulaOS is unverified, because the host does not trust the NebulaOS key yet. | This is inherent to switching from another image. | [INSTALLATION.md](INSTALLATION.md) now verifies the signature with `cosign verify` *before* switching. After the switch, `ujust nebula-enable-signed-updates` turns enforcement on. |
 | `cosign.key` is passwordless and was stored unencrypted in the project folder. | CI needs it as a secret. | Move the local copy to a password manager or offline backup and delete it from disk. See [SECURITY.md](../SECURITY.md). A backup key (`keyPaths`) would make rotation easier. |
 | The bootc-image-builder image and the base use floating tags. | Following Bazzite daily is intended. | The base digest is now recorded in every image. Pinning the builder image is a Phase 6 task. |
-| ISO installation and VM boot were untested. | This needs root or a VM with installation rights. | Tested in a VM on 2026-11-22: the ISO boots with UEFI and installs, and (after a fix) the installer creates the user account. The disk-image workflow now boots the qcow2 in QEMU and checks that the login screen appears. Real hardware is still untested. |
+| ISO installation on hardware and the full first-login journey remain unverified. | Installation requires a disposable VM or test machine. | VM installation on 2026-11-22 confirmed the ISO boots with UEFI, installs, and creates the user account. The disk-image workflow's qcow2 check only confirms that OCR sees the GDM “Choose Gaming Mode” text; it does not log in. Real hardware and interactive mode switching are still untested. |
 | Dual-GPU laptops can show a black screen in Steam Gaming Mode (a known gamescope limitation, improved by CardWire in Bazzite 44). | Upstream. | Work Mode is always available at the login screen. `nebula hw` reports hybrid setups. |
 | `ujust restore-gnome-de-settings` (Bazzite) resets the dock and wallpaper to Bazzite's values. | It is a Bazzite recipe. | Documented in [TROUBLESHOOTING.md](TROUBLESHOOTING.md). |
 
@@ -124,6 +124,6 @@ These are implemented but have not been exercised on a booted NebulaOS system:
 3. The `steamosctl` shim makes Bazzite's own buttons and recipes work.
 4. The app bundle service with the new hardening installs apps on first boot.
 5. `nebula-enable-signed-updates` followed by a signed upgrade.
-6. The ISO installer.
+6. ISO installation on real hardware (VM installation was tested on 2026-11-22).
 
 The reference machine runs stock Bazzite, so `nebula status`, `nebula hw`, `nebula doctor` and `nebula update check` were run there and their output checked by hand. That covers the backend, but not the image.

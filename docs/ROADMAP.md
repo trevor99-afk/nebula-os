@@ -12,14 +12,33 @@ Every phase ends with tests, documentation, and a release to the `testing` chann
 - [x] **Nebula Hardware Detection Engine v1** (`nebula hw`): GPUs with vendor backends (AMD, Intel, NVIDIA), Vulkan, OpenGL, VA-API, architecture, hybrid graphics (CardWire), displays with EDID, current mode, VRR and HDR, using the five-level capability model
 - [x] **Nebula System Doctor v1** (`nebula doctor`): 12 read-only checks, suggested fixes, exportable report
 - [x] **Unified monitoring backend v1** (`nebula status --json`) and update management (`nebula update check|history|apply|rollback`)
-- [x] Mode choice at every login (NebulaOS Gaming Mode / Work Mode) and mode switching on Bazzite DX GNOME: implemented and covered by image and unit tests; switching in a running system is not verified yet
+- [x] Full-screen mode chooser for new accounts, direct GDM session choices, and per-account chooser controls: implemented with unit and image smoke coverage; interactive chooser, controller access and in-session handoffs remain unverified in a built image
 - [x] Installer ISO: boots with UEFI and installs in a virtual machine (2026-11-22)
 - [x] NVIDIA edition built in CI (`nebula-os-nvidia`)
 - [ ] Run the update and rollback runbook in a VM and on the reference laptop, and record the results ([RELEASE_PROCESS.md](RELEASE_PROCESS.md#verifying-updates-and-rollback))
 - [ ] Move `cosign.key` to an offline backup; add a backup signing key for rotation
-- [ ] Boot splash: NebulaOS logo in the Plymouth theme (needs the initramfs regenerated in the image build)
+- [ ] Boot splash: create an original NebulaOS Plymouth theme only after verifying the exact Bazzite/bootc dracut and initramfs generation path for the target image. Keep the Bazzite splash as the fallback, add image checks, and boot the rebuilt image before calling it verified. No Plymouth code is included until that build-time path is confirmed.
 - [ ] Boot test in CI: install or boot the image in QEMU (`tests/vm/`), log in to both modes, switch in both directions, and run an update and a rollback
 - [ ] Security scan policy: decide which Trivy findings block a release (findings inherited from the Bazzite base are tracked, not blocking)
+
+## Prioritized follow-ups from the 2026-11-22 comparison
+
+The comparison report's other proposals remain future work. Original ranks are preserved so their priority is clear; effort and risk are estimates, not compatibility claims.
+
+| Original rank | Follow-up | Effort / risk |
+|---:|---|---|
+| 1 | Run a physical-device beta on the declared target. Record boot, login, both session directions, external displays, sleep/resume, controller, and update/rollback results by exact image. | M / High |
+| 2 | Extend the VM workflow beyond GDM to exercise login, both modes, chooser persistence, switching, and update/rollback where feasible; keep the quick boot smoke check. | M–L / Medium |
+| 4 | Publish a per-model hardware evidence matrix separating image boot, GNOME login, gaming-session start, controller, suspend/resume, display output, and GPU selection. | S–M / Low |
+| 5 | Add read-only status for the current session, booted and pending deployments, reboot state, and recovery path; handle unavailable data honestly. | M / Medium |
+| 7 | Publish a stable user-facing download path and distinguish supported releases from temporary CI artifacts. | M / Medium |
+| 8 | Explain signed-update verification, when enforcement starts, the trusted image identity, and recovery during installation. Never include private key material. | S / Medium |
+| 9 | Test NVIDIA, Intel, hybrid graphics, and external displays on representative hardware before changing compatibility claims. | L / High |
+| 10 | Constrain floating image-build dependencies and record the versions used for each release. | S–M / Medium |
+| 11 | Attach a per-release SBOM and vulnerability summary, and define which findings block publication. | M / Medium |
+| 13 | Document the app bundle's purpose, first-boot timing, failure behavior, and supported add/remove path. | S / Low |
+| 14 | Add read-only `nebula doctor` checks for session availability, gamescope/Steam presence, active deployment, and controller service; distinguish configuration checks from hardware validation. | M / Medium |
+| 15 | After establishing baseline devices, measure frame time, launch, suspend/resume, power, and game compatibility before adopting tuning changes. | L / High |
 
 ## Phase 2: Nebula Control Center and System Doctor GUI
 
