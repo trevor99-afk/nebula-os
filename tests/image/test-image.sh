@@ -34,6 +34,9 @@ if [[ -n "$EXPECTED_REF" ]]; then
     check "signature policy covers $repo" jq -e --arg r "$repo" '.transports.docker[$r][0].type == "sigstoreSigned"' /etc/containers/policy.json
     check "registries.d enables sigstore attachments" grep -q "$repo" /etc/containers/registries.d/nebula-os.yaml
 fi
+# bootc only enforces signatures (the installer's --enforce-container-sigpolicy) when the
+# global default is not insecureAcceptAnything. Universal Blue ships "reject"; catch a change.
+check "signature policy's global default is reject" jq -e '.default[0].type == "reject"' /etc/containers/policy.json
 if [[ -n "$EXPECTED_REPO_URL" ]]; then
     check "os-release links to $EXPECTED_REPO_URL" \
         test "${HOME_URL:-}|${BUG_REPORT_URL:-}" = "$EXPECTED_REPO_URL|$EXPECTED_REPO_URL/issues"
