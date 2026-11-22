@@ -18,6 +18,10 @@ Each build also gets `<channel>-<YYYYMMDD>` and `<channel>-<YYYYMMDD>-<commit>` 
 
 A failure at any step means nothing is published to that channel.
 
+## Booting a disk image in CI
+
+The **Build disk images** workflow boots each manually built qcow2 on an Ubuntu GitHub runner with KVM and UEFI, then checks its GDM screenshot for the NebulaOS “Choose your mode” banner. A boot failure uploads the screenshot and QEMU logs as a run artifact. Start it from **Actions → Build disk images → Run workflow**; the boot check runs automatically after the disk artifacts are built. It is skipped when uploading directly to S3.
+
 ## Promoting testing to stable
 
 1. Merge changes into `dev`; CI publishes `:testing`.
