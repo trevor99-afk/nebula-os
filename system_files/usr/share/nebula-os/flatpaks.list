@@ -4,7 +4,8 @@
 # Find IDs at https://flathub.org (the ID is the last part of an app's URL).
 # Apps a user uninstalls are never reinstalled automatically.
 #
-# Bazzite already provides: Steam, Lutris, ProtonPlus, Protontricks, Flatseal and more.
+# Bazzite already ships Steam, Lutris and Protontricks; ProtonPlus and more are one click
+# away in Bazzite Portal. Apps a user installed per-user are not installed twice.
 
 # Game launchers
 com.heroicgameslauncher.hgl     # Heroic Games Launcher: Epic, GOG and Amazon games

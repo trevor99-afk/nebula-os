@@ -1,0 +1,42 @@
+#!/usr/bin/bash
+# steamosctl compatibility for NebulaOS (installed as /usr/bin/steamosctl only
+# when the base image has no steamosctl of its own).
+#
+# Bazzite's mode switching (Steam's "Switch to Desktop", return-to-gamemode,
+# `ujust set-default-game-mode` / `set-default-desktop`) calls steamosctl from
+# steamos-manager. Bazzite DX removes steamos-manager and uses the GDM login
+# screen, so those tools would fail. This maps the commands they use onto
+# nebula-os-switch-side, which works with GDM.
+set -euo pipefail
+
+SWITCH=/usr/libexec/nebula-os-switch-side
+cmd="${1:-}"
+[[ $# -gt 0 ]] && shift
+
+case "$cmd" in
+    set-default-login-mode)
+        case "${1:-}" in
+            game | gamescope) exec "$SWITCH" gaming ;;
+            desktop) exec "$SWITCH" work ;;
+            *)
+                echo "Usage: steamosctl set-default-login-mode game|desktop" >&2
+                exit 2
+                ;;
+        esac
+        ;;
+    get-default-login-mode)
+        mode=$("$SWITCH" status) # fails (and so does this) when the mode cannot be read
+        if [[ "$mode" == gaming ]]; then echo "game"; else echo "desktop"; fi
+        ;;
+    switch-to-game-mode) exec "$SWITCH" gaming --now ;;
+    switch-to-desktop-mode) exec "$SWITCH" work --now ;;
+    set-default-desktop-session)
+        # NebulaOS has a single desktop session (GNOME); nothing to change.
+        exit 0
+        ;;
+    *)
+        echo "steamosctl (NebulaOS compatibility): '$cmd' is not supported here." >&2
+        echo "Switch modes with: ujust nebula-side gaming|work" >&2
+        exit 1
+        ;;
+esac

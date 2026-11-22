@@ -1,0 +1,9 @@
+#!/usr/bin/python3 -I
+# NebulaOS system tools. Run `nebula --help`.
+import sys
+
+sys.path.insert(0, "/usr/lib/nebula-os")
+
+from nebula.cli import main  # noqa: E402
+
+sys.exit(main())

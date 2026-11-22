@@ -13,6 +13,10 @@ if [[ ! -f "$CONTENT" ]] || ! grep -qx 'rows:' "$CONTENT"; then
     echo "Note: Bazaar's content.yaml is missing or changed format; skipping the Development & Work section."
     exit 0
 fi
+if grep -q '"Development & Work"' "$CONTENT"; then
+    echo "Development & Work section already present."
+    exit 0
+fi
 
 awk -v section="$SECTION" '
     { print }

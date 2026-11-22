@@ -6,9 +6,10 @@ picture-uri-dark='file:///usr/share/backgrounds/nebula-os/nebula-night.svg'
 picture-options='zoom'
 primary-color='#0d0724'
 
-# Dock for the work side: Bazaar store and VS Code first, plus a shortcut back to Gaming Mode.
+# Dock for Work Mode: Bazaar and Bazzite Portal (app installation), VS Code, Terminal and
+# Files, Steam and Lutris, plus a shortcut to Gaming Mode. 90-finalize.sh checks every entry.
 [org.gnome.shell]
-favorite-apps=['org.mozilla.firefox.desktop', 'io.github.kolunmi.Bazaar.desktop', 'code.desktop', 'org.gnome.Ptyxis.desktop', 'org.gnome.Nautilus.desktop', 'steam.desktop', 'nebula-os-switch-to-gaming.desktop']
+favorite-apps=['org.mozilla.firefox.desktop', 'io.github.kolunmi.Bazaar.desktop', 'io.github.ublue_os.yafti_gtk.desktop', 'com.microsoft.VSCode.desktop', 'org.gnome.Ptyxis.desktop', 'org.gnome.Nautilus.desktop', 'steam.desktop', 'net.lutris.Lutris.desktop', 'nebula-os-switch-to-gaming.desktop']
 
 [org.gnome.desktop.screensaver]
 picture-uri='file:///usr/share/backgrounds/nebula-os/nebula-night.svg'

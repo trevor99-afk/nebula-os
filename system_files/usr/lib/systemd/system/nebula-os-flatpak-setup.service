@@ -16,6 +16,13 @@ RestartSec=5min
 # Stay out of the way of games while downloading.
 Nice=10
 IOSchedulingClass=idle
+# Hardening that does not get in flatpak's way (it writes /var/lib/flatpak and
+# root's cache, and uses bubblewrap, so namespaces, /var and /root stay available).
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
 
 [Install]
 WantedBy=multi-user.target

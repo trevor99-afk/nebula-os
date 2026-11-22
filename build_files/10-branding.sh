@@ -9,10 +9,9 @@
 # ID=bazzite in os-release stays for the same reason.
 set -euo pipefail
 
-: "${IMAGE_NAME:?}" "${IMAGE_PRETTY_NAME:?}" "${IMAGE_REGISTRY:?}" "${IMAGE_TAG:?}" "${BASE_IMAGE:?}"
+: "${IMAGE_NAME:?}" "${IMAGE_PRETTY_NAME:?}" "${IMAGE_REGISTRY:?}" "${IMAGE_TAG:?}" "${BASE_IMAGE:?}" "${REPO_URL:?}"
 
 OS_RELEASE=/usr/lib/os-release
-REPO_URL="https://github.com/${IMAGE_REGISTRY#ghcr.io/}/${IMAGE_NAME}"
 
 # set_os_release KEY VALUE: writes KEY="VALUE", replacing any existing KEY line.
 set_os_release() {
@@ -63,11 +62,25 @@ else
     echo "Note: Bazzite's MOTD template changed; skipping welcome-message branding."
 fi
 
+set_os_release IMAGE_VERSION "${IMAGE_VERSION:-${IMAGE_TAG}.local}"
+
 # Where this image is published and what it is built on. Read by the ISO
-# installer (disk_config/iso.toml) and the `ujust nebula-*` commands.
+# installer (disk_config/iso.toml), `nebula status` and the `ujust nebula-*` commands.
 install -d /usr/share/nebula-os
 echo "${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" >/usr/share/nebula-os/image-ref
 echo "${BASE_IMAGE}" >/usr/share/nebula-os/base-image
+jq -n \
+    --arg name "$IMAGE_NAME" \
+    --arg pretty "$IMAGE_PRETTY_NAME" \
+    --arg channel "$IMAGE_TAG" \
+    --arg version "${IMAGE_VERSION:-${IMAGE_TAG}.local}" \
+    --arg git_sha "${GIT_SHA:-}" \
+    --arg base_image "$BASE_IMAGE" \
+    --arg base_digest "${BASE_DIGEST:-}" \
+    --arg built "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{name: $name, pretty_name: $pretty, channel: $channel, version: $version, git_sha: $git_sha,
+      base_image: $base_image, base_digest: $base_digest, built: $built}' \
+    >/usr/share/nebula-os/build-info.json
 
 echo "--- Resulting os-release:"
 cat "$OS_RELEASE"

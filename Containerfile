@@ -23,7 +23,13 @@ ARG BASE_IMAGE
 ARG IMAGE_NAME="nebula-os"
 ARG IMAGE_PRETTY_NAME="NebulaOS"
 ARG IMAGE_REGISTRY="ghcr.io/your-github-username"
+# Project repository (both editions are built from it): os-release links point here.
+ARG REPO_URL="https://github.com/your-github-username/nebula-os"
 ARG IMAGE_TAG="latest"
+# Traceability (shown by `nebula status`); the Justfile fills these in.
+ARG IMAGE_VERSION=""
+ARG GIT_SHA=""
+ARG BASE_DIGEST=""
 
 ### MODIFICATIONS
 ## All changes happen in build_files/build.sh and the numbered scripts next to it.
