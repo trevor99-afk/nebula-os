@@ -5,6 +5,11 @@ All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `
 ## Unreleased
 
 ### Fixed
+- **A fresh install from the ISO had no web browser** (and no text editor, calculator, image or PDF viewer), although Firefox was pinned in the dock: Bazzite's own installer adds these apps, ours did not. They are now the first apps of the first-boot app bundle, and an image test checks that every dock app is shipped or in the bundle. (Found in a GNOME Boxes install.)
+- The installed computer was named "bazzite"; the installer now names it after the edition (`nebula-os`, `nebula-os-nvidia`).
+- The terminal welcome message showed Bazzite's image name and sent "Report an issue" to Bazzite's tracker. It now shows the NebulaOS image and links to NebulaOS issues.
+- `nebula doctor` said the app bundle was "maybe removed on purpose" while the first-boot installer was still downloading it. It now says the bundle is being installed.
+- CI boot test: the runner user could not open `/dev/kvm`, so the test stopped before booting.
 - **The installer ISO created no user account**, so the installed system could not be logged in to (found by installing it in a VM). Bazzite has no GNOME first-boot setup; the installer now creates the account and sets the time zone, and a config check stops the build if that is ever turned off.
 - The login screen showed Bazzite's logo; it now shows the NebulaOS wordmark. (The boot splash still shows Bazzite's logo: it lives in the initramfs.)
 - `nebula status`, `nebula hw` and `nebula doctor` woke a laptop's sleeping dedicated GPU every time (measured: 0.7 to 1.3 s per run on a Legion 5). GPU names now come from the PCI ID database instead of `lspci`, which reads every device's configuration space.

@@ -29,7 +29,7 @@ On the login screen: select your user, click the **gear button** and pick a mode
   - `nebula doctor`: **System Doctor.** 12 checks with suggested fixes; it never changes anything.
   - `nebula update check|history|apply|rollback`: updates, with confirmation before any change
   - Every command has `--json` output.
-- **App bundle** from Flathub: Heroic, Bottles, OBS Studio, Vesktop, MangoJuice, RetroArch, Dolphin, PCSX2.
+- **App bundle** from Flathub: everyday apps (Firefox, Text Editor, Calculator, Image Viewer, Document Viewer, Flatseal, Extension Manager) plus Heroic, Bottles, OBS Studio, Vesktop, MangoJuice, RetroArch, Dolphin, PCSX2.
 - **FPS overlay preset** (`ujust nebula-fps-overlay on`).
 - **Identity:** name in the boot menu and Settings › About, logo, wallpapers, login mode names.
 - **Signed images** with your own key, verified in CI before publication.

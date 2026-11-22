@@ -75,6 +75,14 @@ if [[ -f "$MOTD" ]] && grep -q '^# Welcome to Bazzite' "$MOTD"; then
     # The backticks are literal Markdown, not command substitution.
     # shellcheck disable=SC2016
     sed -i '/^| `ujust --choose`/a | `ujust nebula-info` | NebulaOS version, apps and tools |' "$MOTD"
+    # The image line read Bazzite's image-info.json ("ghcr.io/ublue-os/bazzite-dx-gnome:stable",
+    # seen in a VM install), which stays Bazzite's on purpose (see the note at the top).
+    # Show where this system gets its updates instead.
+    image_sed=$(printf '%s' "${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" | sed 's/[&|\\]/\\&/g')
+    sed -i "s|\`\${MOTD_IMAGE_NAME}:\${MOTD_IMAGE_BRANCH}\`|\`${image_sed}\`|" "$MOTD"
+    # NebulaOS problems go to NebulaOS, not to Bazzite's tracker.
+    repo_sed=$(printf '%s' "$REPO_URL" | sed 's/[&|\\]/\\&/g')
+    sed -i "s|\[Report an issue\](https://issues.bazzite.gg/)|[Report an issue](${repo_sed}/issues)|" "$MOTD"
 else
     echo "Note: Bazzite's MOTD template changed; skipping welcome-message branding."
 fi

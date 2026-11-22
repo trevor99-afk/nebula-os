@@ -64,7 +64,7 @@ If Bazzite is already installed, you can switch it to NebulaOS instead. Your fil
 ## First boot
 
 - **Choose your mode on the login screen:** select your user, click the gear button at the bottom right, and choose **NebulaOS Gaming Mode** or **NebulaOS Work Mode**. The login screen remembers your last choice. `ujust nebula-mode gaming` or `ujust nebula-mode work` sets it from a terminal.
-- **The app bundle installs in the background** (Heroic, Bottles, OBS, Vesktop, MangoJuice, RetroArch, Dolphin, PCSX2). Check with `ujust nebula-info`.
+- **The app bundle installs in the background** over the first minutes: everyday apps first (Firefox, Text Editor, Calculator, Image Viewer, Document Viewer, Flatseal, Extension Manager), then Heroic, Bottles, OBS, Vesktop, MangoJuice, RetroArch, Dolphin and PCSX2. Until Firefox arrives, its dock icon does nothing. Check progress with `ujust nebula-info`.
 - **Docker:** administrator accounts are added to the `docker` and `libvirt` groups on first boot. Log out and in once before using `docker` without `sudo`.
 - **Check the system:** `nebula doctor` and `nebula hw`.
 

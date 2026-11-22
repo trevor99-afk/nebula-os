@@ -105,11 +105,37 @@ class Checks(unittest.TestCase):
             runner = FakeRunner({
                 ("flatpak", "remotes"): ok("flathub\tsystem\n"),
                 ("flatpak", "list"): ok("com.a.App\n"),
-                ("systemctl", "show"): ok("success\n"),
+                ("systemctl", "show"): ok("Result=success\nActiveState=inactive\n"),
             })
             check = doctor.check_flatpak(ctx(runner, root=tmp))
         self.assertEqual(check.status, "info")
         self.assertIn("missing: org.b.App", check.details)
+        self.assertIn("removed on purpose", check.summary)
+
+    def test_flatpak_bundle_still_installing(self):
+        # Seen in a fresh VM install: the first-boot installer was still running,
+        # and doctor said the missing apps were "maybe removed on purpose".
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp) / doctor.APP_LIST, "com.a.App\norg.b.App\n")
+            runner = FakeRunner({
+                ("flatpak", "remotes"): ok("flathub\tsystem\n"),
+                ("flatpak", "list"): ok("com.a.App\n"),
+                ("systemctl", "show"): ok("Result=success\nActiveState=activating\n"),
+            })
+            check = doctor.check_flatpak(ctx(runner, root=tmp))
+        self.assertEqual(check.status, "info")
+        self.assertIn("being installed now", check.summary)
+        self.assertNotIn("removed on purpose", check.summary)
+
+    def test_flatpak_bundle_installer_failed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp) / doctor.APP_LIST, "com.a.App\n")
+            runner = FakeRunner({
+                ("flatpak", "remotes"): ok("flathub\tsystem\n"),
+                ("flatpak", "list"): ok(""),
+                ("systemctl", "show"): ok("Result=exit-code\nActiveState=failed\n"),
+            })
+            self.assertEqual(doctor.check_flatpak(ctx(runner, root=tmp)).status, "warn")
 
     def test_flathub_disabled(self):
         runner = FakeRunner({("flatpak", "remotes"): ok("flathub\tsystem,disabled\n")})

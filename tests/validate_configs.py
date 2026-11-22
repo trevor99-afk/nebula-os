@@ -24,6 +24,12 @@ users = "org.fedoraproject.Anaconda.Modules.Users"
 if users not in modules.get("enable", []) or users in modules.get("disable", []):
     errors.append(f"disk_config/iso.toml: the installer must enable {users} (no other way to create an account)")
 
+# The installer leaves /etc/hostname empty, and the computer was then called "bazzite"
+# (VM install, 2026-11-22): the kickstart %post must name it.
+kickstart = iso.get("customizations", {}).get("installer", {}).get("kickstart", {}).get("contents", "")
+if "/etc/hostname" not in kickstart or "DEFAULT_HOSTNAME" not in kickstart:
+    errors.append("disk_config/iso.toml: the kickstart %post must write /etc/hostname from DEFAULT_HOSTNAME")
+
 for list_file in (ROOT / "system_files/usr/share/nebula-os/flatpaks.list",):
     for number, line in enumerate(list_file.read_text().splitlines(), 1):
         app = line.split("#", 1)[0].strip()

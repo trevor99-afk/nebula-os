@@ -256,13 +256,24 @@ def check_flatpak(ctx: Context) -> Check:
     installed = ctx.runner(["flatpak", "list", "--app", "--columns=application"], timeout=15)
     have = set(installed.stdout.split()) if installed.ok else set()
     missing = [a for a in wanted if a not in have]
-    setup = ctx.runner(["systemctl", "show", "nebula-os-flatpak-setup.service", "-p", "Result", "--value"], timeout=5)
+    setup = ctx.runner(["systemctl", "show", "nebula-os-flatpak-setup.service", "-p", "Result", "-p", "ActiveState"],
+                       timeout=5)
+    state = {}
+    if setup.ok:
+        for line in setup.stdout.splitlines():
+            key, _, value = line.partition("=")
+            state[key.strip()] = value.strip()
     details = [f"bundle apps installed: {len(wanted) - len(missing)}/{len(wanted)}"] + [f"missing: {a}" for a in missing]
-    if setup.ok and setup.stdout.strip() not in ("success", ""):
+    if state.get("Result", "") not in ("success", ""):
         return Check("apps", "Apps (Flatpak)", "warn", "The app bundle installer reported an error.", details,
                      fix="See `journalctl -b -u nebula-os-flatpak-setup`, then run `ujust nebula-install-apps`.")
     if not wanted:
         return Check("apps", "Apps (Flatpak)", "ok", "Flathub is enabled.")
+    if missing and state.get("ActiveState") in ("activating", "reloading"):
+        # First boot: the bundle is still downloading, so missing apps are not "removed on purpose".
+        return Check("apps", "Apps (Flatpak)", "info",
+                     f"The app bundle is being installed now; {len(missing)} app(s) still to come.", details,
+                     fix="Nothing to do. Follow it with `journalctl -b -u nebula-os-flatpak-setup -f`.")
     if missing:
         return Check("apps", "Apps (Flatpak)", "info", f"{len(missing)} bundle app(s) not installed (maybe removed on purpose).",
                      details, fix="`ujust nebula-install-apps` installs them.")

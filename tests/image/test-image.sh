@@ -67,6 +67,9 @@ check "Steam's Switch to Desktop reaches /usr/lib/os-session-select" grep -q '/u
 check "GDM profile reads the gdm database" bash -c 'grep -qs "system-db:gdm" /etc/dconf/profile/gdm /usr/share/dconf/profile/gdm'
 check "login screen message is compiled into the gdm database" grep -qa 'banner-message-text' /etc/dconf/db/gdm
 check "login screen shows the NebulaOS logo" bash -c 'grep -qa nebula-os-gdm-logo /etc/dconf/db/gdm && test -s /usr/share/pixmaps/nebula-os-gdm-logo.png'
+# The terminal welcome message must name this image and send bug reports to NebulaOS.
+check "welcome message shows the NebulaOS image" bash -c '! grep -q MOTD_IMAGE_NAME /usr/share/ublue-os/motd/template.md && grep -q "$(cat /usr/share/nebula-os/image-ref)" /usr/share/ublue-os/motd/template.md'
+check "welcome message reports issues to NebulaOS" bash -c '! grep -q issues.bazzite.gg /usr/share/ublue-os/motd/template.md'
 
 # --- No AI tools (removed by build_files/25-no-ai.sh) ----------------------------------------
 check "ramalama is not installed" bash -c '! rpm -q ramalama'
@@ -82,6 +85,17 @@ check "dock includes Switch to Gaming Mode" grep -q 'nebula-os-switch-to-gaming.
 check "default wallpaper is NebulaOS" bash -c 'gsettings get org.gnome.desktop.background picture-uri-dark 2>/dev/null | grep -q nebula-os'
 check "Switch to Gaming Mode launcher is valid" desktop-file-validate /usr/share/applications/nebula-os-switch-to-gaming.desktop
 check "NebulaOS logo is in the icon cache" grep -qa 'nebula-os-logo' /usr/share/icons/hicolor/icon-theme.cache
+# Every dock app must exist after a fresh ISO install: shipped in the image, or installed
+# on first boot from the app bundle. Firefox was pinned but missing (VM install, 2026-11-22).
+check "every dock app is shipped or in the app bundle" bash -c '
+    missing=0
+    for app in $(gsettings get org.gnome.shell favorite-apps | tr -d "[],'"'"'"); do
+        [[ -e /usr/share/applications/$app ]] && continue
+        grep -qE "^${app%.desktop}([[:space:]]|#|\$)" /usr/share/nebula-os/flatpaks.list && continue
+        echo "  not shipped and not in the app bundle: $app"; missing=1
+    done
+    exit $missing'
+check "app bundle includes a web browser" grep -qE '^org\.mozilla\.firefox\b' /usr/share/nebula-os/flatpaks.list
 
 # --- ujust, Bazaar and the app list ---------------------------------------------------------------
 summary=$(just --justfile /usr/share/ublue-os/justfile --summary 2>/dev/null)

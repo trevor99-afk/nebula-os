@@ -13,6 +13,12 @@ contents = """
 %post
 rm -f /etc/yum.repos.d/fedora.repo /etc/yum.repos.d/fedora-updates.repo
 bootc switch --mutate-in-place --transport registry "$(cat /usr/share/nebula-os/image-ref)"
+# Name the computer. The installer leaves /etc/hostname empty (its Network module
+# is off), and the boot then falls back to the base image's name, "bazzite"
+# (seen in a VM install, 2026-11-22). DEFAULT_HOSTNAME is nebula-os or nebula-os-nvidia.
+if ! grep -q '[^[:space:]]' /etc/hostname 2>/dev/null; then
+    (. /usr/lib/os-release && echo "${DEFAULT_HOSTNAME:-nebula-os}") >/etc/hostname
+fi
 %end
 """
 
