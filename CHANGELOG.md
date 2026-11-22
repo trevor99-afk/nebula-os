@@ -14,6 +14,9 @@ All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `
 ### Added
 - [Backend and Gaming Mode audit](docs/BACKEND_GAMING_AUDIT.md), with the Legion 5 15ACH6A as the primary target.
 
+### Removed
+- All AI tools: ramalama, `ujust install-ai-tools` and LM Studio in Bazzite Portal (inherited from Bazzite DX), the local AI guide and the planned AI Hub. ROCm (general GPU compute) and onnxruntime (needed by FFmpeg for video playback) stay.
+
 ## 0.2.0: Foundation (2026-11-21)
 
 ### Added

@@ -8,7 +8,7 @@
 
 NebulaOS is built on [Bazzite DX](https://dev.bazzite.gg), so it keeps everything Bazzite provides (Steam, Proton, Gamescope, MangoHud, a gaming-tuned kernel, fresh graphics drivers, automatic updates and one-step rollback). On top, it adds its own tools and identity, and does not rebuild what Bazzite already does well.
 
-> **Status:** testing. The image builds, is signed and passes 43 automated image tests. It has not yet been booted on real hardware. See [what is verified](docs/NEBULAOS_TECHNICAL_AUDIT.md#unverified-needs-a-real-boot).
+> **Status:** testing. The image builds, is signed and passes 47 automated image tests. It has not yet been booted on real hardware. See [what is verified](docs/NEBULAOS_TECHNICAL_AUDIT.md#unverified-needs-a-real-boot).
 
 ## The two modes
 
@@ -34,7 +34,7 @@ On the login screen: select your user, click the **gear button** and pick a mode
 - **Identity:** name in the boot menu and Settings › About, logo, wallpapers, login mode names.
 - **Signed images** with your own key, verified in CI before publication.
 
-The planned **Nebula Control Center, Gaming Optimizer, Display Lab, Dev Hub and AI Hub** are on the [roadmap](docs/ROADMAP.md).
+The planned **Nebula Control Center, Gaming Optimizer, Display Lab and Dev Hub** are on the [roadmap](docs/ROADMAP.md).
 
 ## Install
 
@@ -74,7 +74,7 @@ Updates install automatically in the background (Bazzite's updater) and apply on
 
 ## Documentation
 
-[Installation](docs/INSTALLATION.md) · [Hardware compatibility](docs/HARDWARE_COMPATIBILITY.md) · [Gaming](docs/GAMING.md) · [Development](docs/DEVELOPMENT.md) · [AI](docs/AI.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Technical audit](docs/NEBULAOS_TECHNICAL_AUDIT.md) · [Backend and Gaming Mode audit](docs/BACKEND_GAMING_AUDIT.md) · [Roadmap](docs/ROADMAP.md) · [Release process](docs/RELEASE_PROCESS.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+[Installation](docs/INSTALLATION.md) · [Hardware compatibility](docs/HARDWARE_COMPATIBILITY.md) · [Gaming](docs/GAMING.md) · [Development](docs/DEVELOPMENT.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Technical audit](docs/NEBULAOS_TECHNICAL_AUDIT.md) · [Backend and Gaming Mode audit](docs/BACKEND_GAMING_AUDIT.md) · [Roadmap](docs/ROADMAP.md) · [Release process](docs/RELEASE_PROCESS.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 ## Building it yourself
 

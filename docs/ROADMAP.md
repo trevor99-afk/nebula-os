@@ -42,10 +42,9 @@ Built on the Phase 1 Hardware Detection Engine and the capability model. All con
 
 Depends on: Phases 1 and 2. Risk: needs real hardware for every vendor; see the testing matrix below.
 
-## Phase 4: Development and AI
+## Phase 4: Development
 
-- **Nebula Dev Hub.** Distrobox-assemble templates (Python, web, full-stack, AI, Android, game development, C/C++), create, start, stop, delete, export and import, and a view of installed dependencies. It orchestrates Bazzite DX's Podman, Docker, distrobox, BoxBuddy, VS Code and Homebrew, and does not replace them.
-- **Nebula AI Hub.** Discover and install AI tools as containers or Flatpaks (ramalama and Alpaca from the base; Ollama, Open WebUI, llama.cpp, JupyterLab and ComfyUI as optional containers). Show GPU resources and the matching acceleration (ROCm, CUDA on NVIDIA, Vulkan), manage model storage, and never download models automatically.
+- **Nebula Dev Hub.** Distrobox-assemble templates (Python, web, full-stack, Android, game development, C/C++), create, start, stop, delete, export and import, and a view of installed dependencies. It orchestrates Bazzite DX's Podman, Docker, distrobox, BoxBuddy, VS Code and Homebrew, and does not replace them.
 
 ## Phase 5: Identity and creative work
 

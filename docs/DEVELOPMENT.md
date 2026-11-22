@@ -11,7 +11,7 @@ Choose **NebulaOS Work Mode** on the login screen for the GNOME desktop.
 | Distrobox, BoxBuddy | Any Linux distribution as a container, with your home folder shared: `distrobox create -i ubuntu:24.04 -n dev && distrobox enter dev` |
 | Homebrew | Command-line tools without changing the system: `brew install gh node` |
 | virt-manager, QEMU and libvirt | Virtual machines (`libvirt` group added on first boot) |
-| Android tools, flatpak-builder, gdb, bpftrace, sysprof, ramalama | See `rpm -qa` for the full list |
+| Android tools, flatpak-builder, gdb, bpftrace, sysprof | See `rpm -qa` for the full list |
 
 The immutable system stays clean: put toolchains in containers (Distrobox, Docker, Podman) or Homebrew, not in the OS image.
 
@@ -23,4 +23,4 @@ The immutable system stays clean: put toolchains in containers (Distrobox, Docke
 
 ## Planned
 
-**Nebula Dev Hub:** ready-made isolated environments (Python, web, full-stack, AI, Android, game development, C/C++) that you can create, start, stop, delete, export and import, built on Distrobox and Podman. See [ROADMAP.md](ROADMAP.md#phase-4-development-and-ai).
+**Nebula Dev Hub:** ready-made isolated environments (Python, web, full-stack, Android, game development, C/C++) that you can create, start, stop, delete, export and import, built on Distrobox and Podman. See [ROADMAP.md](ROADMAP.md#phase-4-development).

@@ -68,7 +68,7 @@ The rule for NebulaOS: **reuse what Bazzite and Universal Blue already do well, 
 | Component (provider) | What it does | NebulaOS decision |
 | --- | --- | --- |
 | Bazaar (Bazzite) | Flatpak app store with curated rows | **Inherit.** No NebulaOS store. Add curated rows (Development & Work) and link to it from NebulaOS tools. |
-| Bazzite Portal / yafti (Bazzite) | Setup wizard and tailored software installation | **Inherit.** Kept in the dock; future profiles (Creative, Dev, AI) should be offered through it or through Bazaar rows. |
+| Bazzite Portal / yafti (Bazzite) | Setup wizard and tailored software installation | **Inherit.** Kept in the dock; future profiles (Creative, Dev) should be offered through it or through Bazaar rows. |
 | ujust recipe catalogue (Universal Blue) | Gaming and system fixes, ProtonPlus, Decky, frame generation, device info, logs | **Inherit.** NebulaOS tools call these recipes instead of duplicating them. |
 | uupd (Universal Blue) | Unified updates for the OS, Flatpaks, Homebrew and distrobox | **Inherit.** `nebula update` only reports status and wraps rpm-ostree for explicit actions. There is no second update daemon. |
 | Steam and gamescope sessions (Bazzite) | Gaming Mode | **Inherit.** NebulaOS only names the sessions and hooks `/usr/lib/os-session-select`. |
@@ -78,9 +78,9 @@ The rule for NebulaOS: **reuse what Bazzite and Universal Blue already do well, 
 | MangoHud and vkBasalt (Bazzite) | Overlay and post-processing | **Inherit.** NebulaOS writes configs and profiles (`nebula-fps-overlay`), never another overlay. |
 | tuned / tuned-ppd, scx_loader (Bazzite) | Power profiles and CPU schedulers | **Inherit.** The future Gaming Optimizer switches profiles through their D-Bus APIs. |
 | Distrobox, Podman, Docker, BoxBuddy, Podman Desktop, virt-manager (Bazzite DX) | Containers, dev environments, VMs | **Inherit.** The future Dev Hub orchestrates them with templates. |
-| ramalama, Alpaca, ROCm userland (Bazzite DX) | Local AI | **Inherit.** The future AI Hub orchestrates them. |
+| ramalama, `ujust install-ai-tools`, LM Studio in Bazzite Portal (Bazzite DX) | Local AI | **Removed.** NebulaOS ships no AI tools (`build_files/25-no-ai.sh`). ROCm stays as general GPU compute, and onnxruntime because FFmpeg needs it. |
 | **Status, monitoring, hardware detection, System Doctor** | Not available as one tool | **Original:** the `nebula` backend (this change). |
-| **Control Center, Gaming Optimizer, Display Lab, Dev Hub, AI Hub** | Not available | **Original:** planned, see [ROADMAP.md](ROADMAP.md). |
+| **Control Center, Gaming Optimizer, Display Lab, Dev Hub** | Not available | **Original:** planned, see [ROADMAP.md](ROADMAP.md). |
 
 ## 6. Requirements status
 
@@ -95,7 +95,7 @@ The rule for NebulaOS: **reuse what Bazzite and Universal Blue already do well, 
 | Stable and testing channels | **Done:** `main` publishes `latest`, `dev` publishes `testing` |
 | CI: lint, tests, image tests, signing verification, security scan | **Done.** VM boot tests are still missing. |
 | NVIDIA edition | **Builds in CI** (`nebula-os-nvidia`). Untested on NVIDIA hardware. |
-| Control Center GUI, Gaming Optimizer, Display Lab, Visual Quality Engine, Benchmark, Dev Hub, AI Hub, Creative profiles, GTK, icon and cursor themes, boot branding | **Planned:** [ROADMAP.md](ROADMAP.md) |
+| Control Center GUI, Gaming Optimizer, Display Lab, Visual Quality Engine, Benchmark, Dev Hub, Creative profiles, GTK, icon and cursor themes, boot branding | **Planned:** [ROADMAP.md](ROADMAP.md) |
 | Own app store | **Dropped** as a duplicate of Bazaar |
 | Performance comparison with Bazzite | **Planned.** Needs real hardware runs. |
 

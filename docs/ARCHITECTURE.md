@@ -9,7 +9,7 @@ flowchart TB
     subgraph Base["Inherited base: ghcr.io/ublue-os/bazzite-dx-gnome"]
         F["Fedora Atomic (bootc, rpm-ostree, SELinux, systemd)"]
         B["Bazzite: kernel, Mesa, Steam, gamescope sessions, MangoHud, CardWire, tuned, uupd, Bazaar, Bazzite Portal, ujust"]
-        D["Bazzite DX: VS Code, Docker, Podman, distrobox, virt-manager, ramalama, GDM login"]
+        D["Bazzite DX: VS Code, Docker, Podman, distrobox, virt-manager, GDM login"]
         F --> B --> D
     end
     subgraph Nebula["NebulaOS layer (this repository)"]
@@ -21,7 +21,7 @@ flowchart TB
     end
     subgraph Front["Front ends"]
         CLI["nebula CLI and ujust nebula-* (available)"]
-        GUI["Nebula Control Center, Gaming Optimizer, Display Lab, Dev Hub, AI Hub (planned)"]
+        GUI["Nebula Control Center, Gaming Optimizer, Display Lab, Dev Hub (planned)"]
     end
     D --> Nebula
     T --> CLI

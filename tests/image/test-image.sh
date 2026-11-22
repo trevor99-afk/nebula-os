@@ -67,6 +67,12 @@ check "Steam's Switch to Desktop reaches /usr/lib/os-session-select" grep -q '/u
 check "GDM profile reads the gdm database" bash -c 'grep -qs "system-db:gdm" /etc/dconf/profile/gdm /usr/share/dconf/profile/gdm'
 check "login screen message is compiled into the gdm database" grep -qa 'banner-message-text' /etc/dconf/db/gdm
 
+# --- No AI tools (removed by build_files/25-no-ai.sh) ----------------------------------------
+check "ramalama is not installed" bash -c '! rpm -q ramalama'
+check "ujust has no install-ai-tools" bash -c '! grep -qw install-ai-tools <<<"$(just --justfile /usr/share/ublue-os/justfile --summary)"'
+check "Bazzite Portal offers no LM Studio" bash -c '! grep -q lm-studio /usr/share/yafti/yafti.yml'
+check "video playback libraries are still there" rpm -q ffmpeg gstreamer1-plugin-libav
+
 # --- Desktop defaults ---------------------------------------------------------------------------
 favorites=$(gsettings get org.gnome.shell favorite-apps 2>/dev/null)
 check "dock includes VS Code" grep -q 'com.microsoft.VSCode.desktop' <<<"$favorites"
