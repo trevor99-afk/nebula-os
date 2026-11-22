@@ -19,7 +19,7 @@ Help extend this table: attach `nebula hw --json` (it contains no serial numbers
 | AMD Radeon (GCN 4 / RX 400 and newer) | `nebula-os` | Best supported. Vulkan via RADV, VA-API via radeonsi, GPU usage, VRAM, temperature and power monitoring. Very old GCN 1/2 cards on the legacy `radeon` driver have no Vulkan; `nebula hw` warns about this. |
 | Intel Xe / Arc | `nebula-os` | Vulkan via ANV, VA-API via iHD. GPU usage is not exposed without perf permissions, so NebulaOS shows it as unavailable rather than guessing. Untested so far. |
 | NVIDIA (Turing / GTX 16, RTX 20 and newer) | `nebula-os-nvidia` | Builds in CI; **untested on hardware**. Monitoring via `nvidia-smi`. Older generations (Pascal, Maxwell) are not supported by NVIDIA's open kernel modules. With Secure Boot on, enroll the Universal Blue key. |
-| Hybrid laptops (two GPUs) | either | CardWire (from Bazzite) manages which GPU apps use; `nebula hw` shows its mode and which GPU drives the screen. Steam Gaming Mode can show a black screen on some dual-GPU machines. Work Mode always works, and Steam runs there too. |
+| Hybrid laptops (two GPUs) | either | CardWire (from Bazzite) manages which GPU apps use; `nebula hw` shows its mode and which GPU drives the screen. Steam Gaming Mode can show a black screen on some dual-GPU machines, and external monitors wired to the dedicated GPU (all HDMI/DisplayPort outputs on the Legion 5 15ACH6A) probably stay black in Gaming Mode. Work Mode always works, drives every output, and runs Steam too. |
 
 ## Known limitations
 

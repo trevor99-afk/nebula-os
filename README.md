@@ -74,7 +74,7 @@ Updates install automatically in the background (Bazzite's updater) and apply on
 
 ## Documentation
 
-[Installation](docs/INSTALLATION.md) · [Hardware compatibility](docs/HARDWARE_COMPATIBILITY.md) · [Gaming](docs/GAMING.md) · [Development](docs/DEVELOPMENT.md) · [AI](docs/AI.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Technical audit](docs/NEBULAOS_TECHNICAL_AUDIT.md) · [Roadmap](docs/ROADMAP.md) · [Release process](docs/RELEASE_PROCESS.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+[Installation](docs/INSTALLATION.md) · [Hardware compatibility](docs/HARDWARE_COMPATIBILITY.md) · [Gaming](docs/GAMING.md) · [Development](docs/DEVELOPMENT.md) · [AI](docs/AI.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Technical audit](docs/NEBULAOS_TECHNICAL_AUDIT.md) · [Backend and Gaming Mode audit](docs/BACKEND_GAMING_AUDIT.md) · [Roadmap](docs/ROADMAP.md) · [Release process](docs/RELEASE_PROCESS.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 ## Building it yourself
 

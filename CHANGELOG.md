@@ -2,6 +2,18 @@
 
 All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `latest` (branch `main`).
 
+## Unreleased
+
+### Fixed
+- `nebula status`, `nebula hw` and `nebula doctor` woke a laptop's sleeping dedicated GPU every time (measured: 0.7 to 1.3 s per run on a Legion 5). GPU names now come from the PCI ID database instead of `lspci`, which reads every device's configuration space.
+- `ujust nebula-mode work now` from a text console (Ctrl+Alt+F3) closed the console instead of a stuck Gaming Mode session. It now closes the graphical session.
+- On AMD APUs, the integrated GPU's "power" was the power of the whole processor. It is now reported as `package_power_w`.
+- A GPU drawing 0 W was reported as unknown. Two identical GPUs shared one Vulkan result. On Ryzen CPUs with a temperature offset, the CPU temperature read high (Tctl instead of Tdie). The total network rate counted container and VM traffic several times.
+- The installer ISO and VM image builds failed: the builder could not see Fedora's repositories (dnf5 keeps them in `/usr/share/dnf5/repos.d`), and Ubuntu's AppArmor blocked its sandbox.
+
+### Added
+- [Backend and Gaming Mode audit](docs/BACKEND_GAMING_AUDIT.md), with the Legion 5 15ACH6A as the primary target.
+
 ## 0.2.0: Foundation (2026-11-21)
 
 ### Added

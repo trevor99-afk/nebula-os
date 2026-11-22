@@ -14,10 +14,9 @@ from __future__ import annotations
 
 import os
 import re
-import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .capabilities import Capability, Note
 from .util import Runner, read_int, read_text, run, under
@@ -189,8 +188,17 @@ class AmdBackend(GpuBackend):
         result["vram_total_bytes"] = read_int(device / "mem_info_vram_total")
         hwmon = _first_hwmon(device)
         if hwmon is not None:
-            power = read_int(hwmon / "power1_average") or read_int(hwmon / "power1_input")
-            result["power_w"] = round(power / 1_000_000, 1) if power is not None else None
+            power = read_int(hwmon / "power1_average")
+            if power is None:
+                power = read_int(hwmon / "power1_input")
+            watts = round(power / 1_000_000, 1) if power is not None else None
+            # On an APU (only APUs have the northbridge voltage sensor vddnb), power1 is
+            # the power of the whole processor package (PPT), not of the GPU alone.
+            if read_text(hwmon / "in1_label") == "vddnb":
+                result["power_w"] = None
+                result["package_power_w"] = watts
+            else:
+                result["power_w"] = watts
         sclk = read_text(device / "pp_dpm_sclk")
         if sclk:
             current = next((line for line in sclk.splitlines() if line.rstrip().endswith("*")), None)
@@ -311,19 +319,35 @@ def backend_for(gpu: Gpu) -> GpuBackend:
 
 # --- Detection -------------------------------------------------------------------------------
 
-def lspci_names(runner: Runner = run) -> Dict[str, str]:
-    """{pci slot: device name} for display controllers, from `lspci -mm -D`."""
-    res = runner(["lspci", "-mm", "-D"], timeout=5)
-    names: Dict[str, str] = {}
-    if not res.ok:
+PCI_IDS = ("usr/share/hwdata/pci.ids", "usr/share/misc/pci.ids")
+
+
+def _hex_id(value: Optional[str]) -> str:
+    return (value or "").lower().removeprefix("0x")
+
+
+def pci_ids_names(ids: List[Tuple[Optional[str], Optional[str]]], root: str = "/") -> Dict[Tuple[str, str], str]:
+    """{(vendor, device): name} for PCI IDs such as ("0x1002", "0x73ff"), from the PCI ID
+    database, where `lspci` gets its names too. Only a file is read: `lspci` reads every
+    device's configuration space, and that wakes a GPU sleeping in D3cold."""
+    wanted = {(_hex_id(v), _hex_id(d)) for v, d in ids if v and d}
+    path = next((p for p in (under(root, f) for f in PCI_IDS) if p.is_file()), None)
+    names: Dict[Tuple[str, str], str] = {}
+    if not wanted or path is None:
         return names
-    for line in res.stdout.splitlines():
-        try:
-            fields = shlex.split(line)
-        except ValueError:
-            continue
-        if len(fields) >= 4 and fields[1] in ("VGA compatible controller", "3D controller", "Display controller"):
-            names[fields[0]] = fields[3]
+    vendor = None
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            if not line.strip() or line.startswith("#"):
+                continue
+            if line.startswith("C "):  # device classes follow the vendor list
+                break
+            if not line.startswith("\t"):
+                vendor = line[:4].lower()
+            elif vendor and not line.startswith("\t\t") and (vendor, line[1:5].lower()) in wanted:
+                names[(vendor, line[1:5].lower())] = line[5:].strip()
+                if len(names) == len(wanted):
+                    break
     return names
 
 
@@ -333,7 +357,6 @@ def detect_gpus(root: str = "/", runner: Runner = run, with_names: bool = True) 
         entries = sorted(p.name for p in drm.iterdir())
     except OSError:
         return []
-    names = lspci_names(runner) if with_names else {}
     gpus: List[Gpu] = []
     for card in (e for e in entries if CARD_RE.match(e)):
         device = drm / card / "device"
@@ -353,7 +376,6 @@ def detect_gpus(root: str = "/", runner: Runner = run, with_names: bool = True) 
             vendor_id=vendor_id,
             device_id=read_text(device / "device"),
             vendor=VENDORS.get(vendor_id or "", vendor_id or "unknown"),
-            name=names.get(slot or ""),
             driver=driver,
             boot_vga=None if boot_vga is None else boot_vga == 1,
             runtime_status=read_text(device / "power" / "runtime_status"),
@@ -361,6 +383,10 @@ def detect_gpus(root: str = "/", runner: Runner = run, with_names: bool = True) 
             connected_outputs=connected,
             render_node=render,
         ))
+    if with_names:
+        names = pci_ids_names([(g.vendor_id, g.device_id) for g in gpus], root)
+        for g in gpus:
+            g.name = names.get((_hex_id(g.vendor_id), _hex_id(g.device_id)))
     return gpus
 
 
@@ -458,16 +484,18 @@ def enrich(gpus: List[Gpu], root: str = "/", runner: Runner = run, probe: bool =
     """Fill in metrics, probes, architecture and capabilities for each GPU."""
     vk = vulkan_devices(runner) if probe else None
     icd_dir = under(root, "usr/share/vulkan/icd.d")
+    used: set = set()  # each Vulkan device belongs to one GPU, even with two identical cards
     for gpu in gpus:
         backend = backend_for(gpu)
         gpu.metrics = backend.metrics(gpu, root, runner)
 
         match = None
         if vk is not None:
-            for dev in vk:
-                if dev.get("vendorID", "").lower() == (gpu.vendor_id or "").lower() and \
+            for index, dev in enumerate(vk):
+                if index not in used and dev.get("vendorID", "").lower() == (gpu.vendor_id or "").lower() and \
                         dev.get("deviceID", "").lower() == (gpu.device_id or "").lower():
                     match = dev
+                    used.add(index)
                     break
         if match:
             gpu.vulkan = {

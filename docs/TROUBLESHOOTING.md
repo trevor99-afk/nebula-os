@@ -10,7 +10,11 @@ nebula doctor --report ~/nebula-report.json --include-logs   # with this boot's 
 
 ## Modes
 
-- **Gaming Mode shows a black screen.** Some dual-GPU PCs have trouble with gamescope. Restart; on the login screen, click the gear button and choose **NebulaOS Work Mode**. Steam works there too. `ujust nebula-mode work` makes Work Mode the default.
+- **Gaming Mode shows a black screen.** Some dual-GPU PCs have trouble with gamescope. Either:
+  - press Ctrl+Alt+F3, log in, and run `ujust nebula-mode work now`. This closes the stuck Gaming Mode session. Then press Ctrl+Alt+F1 for the login screen, where Work Mode is now selected; or
+  - restart, and on the login screen click the gear button and choose **NebulaOS Work Mode**.
+  Steam works in Work Mode too. `ujust nebula-mode work` makes Work Mode the default. After repeated failed starts, Gaming Mode also switches back to Work Mode by itself.
+- **An external monitor stays black in Gaming Mode on a hybrid laptop.** On laptops such as the Legion 5 15ACH6A, the HDMI and DisplayPort outputs belong to the dedicated GPU, while Gaming Mode runs on the GPU that drives the built-in screen. Use Work Mode for external monitors, or the BIOS dedicated-GPU (dGPU-only) mode. This is being investigated: see P1 in [BACKEND_GAMING_AUDIT.md](BACKEND_GAMING_AUDIT.md).
 - **Steam's "Switch to Desktop" does nothing.** Use the Power menu to restart and pick Work Mode at the login screen. Then check `journalctl --user -b | grep -iE "session-select|switch-side"` and report it.
 - **The login screen doesn't show the mode names.** Check that you are on NebulaOS (`nebula status`). The names come from the image and appear after the first restart into it.
 

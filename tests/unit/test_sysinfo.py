@@ -61,6 +61,21 @@ class Proc(unittest.TestCase):
         self.assertEqual(rates["rx_bytes_per_s"], 1000)
         self.assertEqual(rates["tx_bytes_per_s"], 500)
 
+    def test_container_traffic_is_counted_once(self):
+        # A container download crosses veth0, docker0 and wlan0: only wlan0 is physical.
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("wlan0", "docker0", "veth0"):
+                (Path(tmp) / "sys/class/net" / name).mkdir(parents=True)
+            (Path(tmp) / "sys/class/net/wlan0/device").mkdir()
+            physical = sysinfo.physical_interfaces(tmp)
+        before = {"wlan0": (0, 0), "docker0": (0, 0), "veth0": (0, 0)}
+        after = {"wlan0": (2000, 200), "docker0": (2000, 200), "veth0": (2000, 200)}
+        rates = sysinfo.net_rates(before, after, 2.0, physical)
+        self.assertEqual(physical, {"wlan0"})
+        self.assertEqual((rates["rx_bytes_per_s"], rates["tx_bytes_per_s"]), (1000, 100))
+        self.assertFalse(rates["interfaces"]["docker0"]["physical"])
+        self.assertEqual(rates["interfaces"]["veth0"]["rx_bytes_per_s"], 1000)
+
     def test_uptime(self):
         with tempfile.TemporaryDirectory() as tmp:
             write(Path(tmp) / "proc/uptime", "3600.5 100.0\n")
@@ -77,6 +92,17 @@ class Sensors(unittest.TestCase):
             write(hw / "hwmon5/temp1_input", "65875\n")
             write(hw / "hwmon5/temp1_label", "Tctl\n")
             self.assertEqual(sysinfo.cpu_temperature(tmp), 65.9)
+
+    def test_prefers_tdie_when_tctl_has_an_offset(self):
+        # k10temp only adds Tdie when Tctl carries an offset (here +20 °C, Ryzen 7 2700X).
+        with tempfile.TemporaryDirectory() as tmp:
+            hw = Path(tmp) / "sys/class/hwmon/hwmon5"
+            write(hw / "name", "k10temp\n")
+            write(hw / "temp1_input", "70000\n")
+            write(hw / "temp1_label", "Tctl\n")
+            write(hw / "temp2_input", "50000\n")
+            write(hw / "temp2_label", "Tdie\n")
+            self.assertEqual(sysinfo.cpu_temperature(tmp), 50.0)
 
     def test_no_sensors(self):
         with tempfile.TemporaryDirectory() as tmp:

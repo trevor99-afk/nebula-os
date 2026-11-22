@@ -263,7 +263,21 @@ def read_net_counters(root: str = "/") -> Dict[str, Tuple[int, int]]:
     return counters
 
 
-def net_rates(before: Dict[str, Tuple[int, int]], after: Dict[str, Tuple[int, int]], seconds: float) -> Dict[str, object]:
+def physical_interfaces(root: str = "/") -> set:
+    """Interfaces backed by a device (Ethernet, Wi-Fi, USB). Bridges, veth pairs and
+    tunnels (Docker, Podman, libvirt, Tailscale) have no device link."""
+    base = under(root, "sys/class/net")
+    try:
+        return {p.name for p in base.iterdir() if (p / "device").exists()}
+    except OSError:
+        return set()
+
+
+def net_rates(before: Dict[str, Tuple[int, int]], after: Dict[str, Tuple[int, int]], seconds: float,
+              physical: Optional[set] = None) -> Dict[str, object]:
+    """Throughput per interface. The totals only add up physical interfaces when they are
+    known: container and VM traffic also crosses a veth and a bridge, so it would be
+    counted several times."""
     rx = tx = 0.0
     per_iface = {}
     for name, (rx1, tx1) in after.items():
@@ -271,17 +285,21 @@ def net_rates(before: Dict[str, Tuple[int, int]], after: Dict[str, Tuple[int, in
             continue
         rx0, tx0 = before[name]
         d_rx, d_tx = max(rx1 - rx0, 0) / seconds, max(tx1 - tx0, 0) / seconds
-        per_iface[name] = {"rx_bytes_per_s": round(d_rx), "tx_bytes_per_s": round(d_tx)}
-        rx += d_rx
-        tx += d_tx
+        is_physical = not physical or name in physical
+        per_iface[name] = {"rx_bytes_per_s": round(d_rx), "tx_bytes_per_s": round(d_tx), "physical": is_physical}
+        if is_physical:
+            rx += d_rx
+            tx += d_tx
     return {"rx_bytes_per_s": round(rx), "tx_bytes_per_s": round(tx), "interfaces": per_iface}
 
 
 # --- Temperatures -------------------------------------------------------------
 
-# hwmon driver name -> preferred sensor labels (first match wins)
+# hwmon driver name -> preferred sensor labels (first match wins). k10temp only
+# exposes Tdie when Tctl carries an offset (up to +27 °C on some Ryzen and
+# Threadripper models), and then Tdie is the real die temperature.
 CPU_SENSORS = (
-    ("k10temp", ("Tctl", "Tdie")),
+    ("k10temp", ("Tdie", "Tctl")),
     ("zenpower", ("Tdie", "Tctl")),
     ("coretemp", ("Package id 0",)),
     ("cpu_thermal", ()),
@@ -357,4 +375,5 @@ def sample(root: str = "/", seconds: float = 0.5, sleep: Callable[[float], None]
     sleep(seconds)
     elapsed = max(time.monotonic() - start, seconds) if sleep is time.sleep else seconds
     cpu1, net1 = read_cpu_times(root), read_net_counters(root)
-    return {"cpu_percent": cpu_usage_percent(cpu0, cpu1), "network": net_rates(net0, net1, elapsed)}
+    return {"cpu_percent": cpu_usage_percent(cpu0, cpu1),
+            "network": net_rates(net0, net1, elapsed, physical_interfaces(root))}

@@ -39,8 +39,16 @@ VAINFO = """vainfo: Driver version: Mesa Gallium driver 26.2.7 for AMD Radeon RX
 
 GLXINFO = "OpenGL renderer string: AMD Radeon RX 6600M (radeonsi, navi23)\nOpenGL core profile version string: 4.6 (Core Profile) Mesa 26.2.7\n"
 
-LSPCI = '0000:03:00.0 "VGA compatible controller" "Advanced Micro Devices, Inc. [AMD/ATI]" "Navi 23 [Radeon RX 6600/6600 XT/6600M]" -rc3 "Lenovo" "x"\n' \
-        '0000:07:00.0 "VGA compatible controller" "Advanced Micro Devices, Inc. [AMD/ATI]" "Cezanne [Radeon Vega Series]" -rc5 "Lenovo" "y"\n'
+PCI_IDS = """# pci.ids excerpt
+1002  Advanced Micro Devices, Inc. [AMD/ATI]
+\t1638  Cezanne [Radeon Vega Series / Radeon Vega Mobile Series]
+\t\t17aa 3ab1  Device 3ab1
+\t73ff  Navi 23 [Radeon RX 6600/6600 XT/6600M]
+10de  NVIDIA Corporation
+\t2520  GA106M [GeForce RTX 3060 Mobile / Max-Q]
+C 00  Unclassified device
+\t73ff  not a device: class section
+"""
 
 
 def hybrid_tree(tmp: Path, dgpu_runtime="suspended"):
@@ -54,13 +62,18 @@ class Detection(unittest.TestCase):
     def test_detects_two_gpus_and_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             hybrid_tree(Path(tmp))
-            gpus = gpu.detect_gpus(tmp, FakeRunner({("lspci",): ok(LSPCI)}))
+            helpers.write(Path(tmp) / "usr/share/hwdata/pci.ids", PCI_IDS)
+            runner = FakeRunner()
+            gpus = gpu.detect_gpus(tmp, runner)
+        # lspci reads every device's PCI configuration space, which wakes a dGPU in D3cold.
+        self.assertEqual(runner.calls, [], "detect_gpus must not run lspci (or any command)")
         self.assertEqual([g.card for g in gpus], ["card1", "card2"])
         dgpu, igpu = gpus
         self.assertEqual(dgpu.vendor, "AMD")
         self.assertEqual(dgpu.driver, "amdgpu")
         self.assertEqual(dgpu.pci_slot, "0000:03:00.0")
         self.assertEqual(dgpu.name, "Navi 23 [Radeon RX 6600/6600 XT/6600M]")
+        self.assertEqual(igpu.name, "Cezanne [Radeon Vega Series / Radeon Vega Mobile Series]")
         self.assertTrue(dgpu.sleeping)
         self.assertEqual(igpu.connected_outputs, ["eDP-2"])
         self.assertTrue(igpu.boot_vga)
@@ -82,6 +95,33 @@ class Detection(unittest.TestCase):
         self.assertEqual(metrics["usage_percent"], 0)
         self.assertEqual(metrics["temperature_c"], 50.0)
         self.assertEqual(metrics["vram_total_bytes"], 8 << 30)
+
+    def test_apu_power_is_package_power(self):
+        # Legion 5 15ACH6A: the Vega iGPU's power1 (PPT) is the whole processor's power.
+        with tempfile.TemporaryDirectory() as tmp:
+            hybrid_tree(Path(tmp), dgpu_runtime="active")
+            igpu_hwmon = Path(tmp) / "sys/devices/pci0000:00/0000:07:00.0/hwmon/hwmon9"
+            dgpu_hwmon = Path(tmp) / "sys/devices/pci0000:00/0000:03:00.0/hwmon/hwmon9"
+            for name, value in (("power1_input", "19000000"), ("power1_label", "PPT"),
+                                ("in0_label", "vddgfx"), ("in1_label", "vddnb")):
+                helpers.write(igpu_hwmon / name, value + "\n")
+            for name, value in (("power1_average", "45000000"), ("power1_label", "PPT"), ("in0_label", "vddgfx")):
+                helpers.write(dgpu_hwmon / name, value + "\n")
+            dgpu, igpu = gpu.detect_gpus(tmp, FakeRunner(), with_names=False)
+            igpu_m = gpu.backend_for(igpu).metrics(igpu, tmp)
+            dgpu_m = gpu.backend_for(dgpu).metrics(dgpu, tmp)
+        self.assertIsNone(igpu_m["power_w"])
+        self.assertEqual(igpu_m["package_power_w"], 19.0)
+        self.assertEqual(dgpu_m["power_w"], 45.0)
+        self.assertNotIn("package_power_w", dgpu_m)
+
+    def test_zero_watts_is_a_reading(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            hybrid_tree(Path(tmp), dgpu_runtime="active")
+            helpers.write(Path(tmp) / "sys/devices/pci0000:00/0000:03:00.0/hwmon/hwmon9/power1_average", "0\n")
+            dgpu = gpu.detect_gpus(tmp, FakeRunner(), with_names=False)[0]
+            metrics = gpu.backend_for(dgpu).metrics(dgpu, tmp)
+        self.assertEqual(metrics["power_w"], 0.0)
 
 
 class Enrichment(unittest.TestCase):
@@ -115,6 +155,19 @@ class Enrichment(unittest.TestCase):
             gpu.enrich(gpus, tmp, runner, probe=False)
         self.assertEqual([c for c in runner.calls if c[0][0] in ("vulkaninfo", "vainfo", "glxinfo")], [])
         self.assertIsNone(gpus[0].capabilities[0].available)
+
+    def test_identical_gpus_get_their_own_vulkan_device(self):
+        vk = ("GPU0:\n\tvendorID = 0x1002\n\tdeviceID = 0x73ff\n\tdeviceName = Card A (RADV NAVI23)\n"
+              "\tdeviceType = PHYSICAL_DEVICE_TYPE_DISCRETE_GPU\n"
+              "GPU1:\n\tvendorID = 0x1002\n\tdeviceID = 0x73ff\n\tdeviceName = Card B (RADV NAVI23)\n"
+              "\tdeviceType = PHYSICAL_DEVICE_TYPE_DISCRETE_GPU\n")
+        runner = FakeRunner({("vulkaninfo",): ok(vk)})
+        with tempfile.TemporaryDirectory() as tmp:
+            make_gpu(Path(tmp), "card0", "0000:03:00.0", "0x1002", "0x73ff", "amdgpu", render="renderD128")
+            make_gpu(Path(tmp), "card1", "0000:04:00.0", "0x1002", "0x73ff", "amdgpu", render="renderD129")
+            gpus = gpu.detect_gpus(tmp, runner, with_names=False)
+            gpu.enrich(gpus, tmp, runner, probe=True)
+        self.assertEqual([g.vulkan["device_name"] for g in gpus], ["Card A (RADV NAVI23)", "Card B (RADV NAVI23)"])
 
     def test_vulkan_missing_device(self):
         runner = FakeRunner({("vulkaninfo",): ok("GPU0:\n\tvendorID = 0x8086\n\tdeviceID = 0x9a49\n")})

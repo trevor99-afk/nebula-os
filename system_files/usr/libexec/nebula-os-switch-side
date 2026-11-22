@@ -5,7 +5,9 @@
 #
 # Usage: nebula-os-switch-side gaming|work|status [--now]
 #   Without --now, only the mode pre-selected at the next login changes.
-#   With --now, you are also logged out so you can sign in to that mode.
+#   With --now, you are also logged out so you can sign in to that mode. From a
+#   text console or SSH, --now closes your graphical session (for example a
+#   Gaming Mode stuck on a black screen) instead of the console session.
 #
 # The choice is stored with AccountsService, which the login screen (GDM)
 # reads to pre-select the session. No password is needed for your own account.
@@ -48,13 +50,37 @@ if [[ "${2:-}" != "--now" ]]; then
     exit 0
 fi
 
-# Leave the current session; the login screen then offers the chosen mode.
-if [[ "${XDG_CURRENT_DESKTOP:-}" == *GNOME* ]]; then
-    gnome-session-quit --logout --no-prompt
-elif pgrep -u "$(id -u)" -x steam >/dev/null; then
-    steam -shutdown
-elif [[ -n "${XDG_SESSION_ID:-}" ]]; then
-    loginctl terminate-session "$XDG_SESSION_ID"
+# graphical_sessions: IDs of this user's Wayland/X11 sessions (Gaming or Work Mode).
+graphical_sessions() {
+    local id uid _rest type
+    loginctl list-sessions --no-legend 2>/dev/null | while read -r id uid _rest; do
+        [[ "$uid" == "$(id -u)" ]] || continue
+        type=$(loginctl show-session "$id" -p Type --value 2>/dev/null) || continue
+        if [[ "$type" == wayland || "$type" == x11 ]]; then echo "$id"; fi
+    done
+}
+
+# Leave the graphical session; the login screen then offers the chosen mode.
+if [[ "${XDG_SESSION_TYPE:-}" == wayland || "${XDG_SESSION_TYPE:-}" == x11 ]]; then
+    # Running inside the session: the dock launcher, Steam's "Switch to Desktop",
+    # or Bazzite's recovery after failed Gaming Mode starts.
+    if [[ "${XDG_CURRENT_DESKTOP:-}" == *GNOME* ]]; then
+        gnome-session-quit --logout --no-prompt
+    elif pgrep -u "$(id -u)" -x steam >/dev/null; then
+        steam -shutdown
+    elif [[ -n "${XDG_SESSION_ID:-}" ]]; then
+        loginctl terminate-session "$XDG_SESSION_ID"
+    else
+        echo "$label is selected. Log out to switch."
+    fi
 else
-    echo "$label is selected. Log out to switch."
+    # From a text console (Ctrl+Alt+F3) or SSH, for example when Gaming Mode shows a
+    # black screen: end the graphical session, not this console's own session.
+    sessions=$(graphical_sessions || true)
+    if [[ -n "$sessions" ]]; then
+        for id in $sessions; do loginctl terminate-session "$id"; done
+        echo "$label is selected. The graphical session was closed; log in again on the login screen."
+    else
+        echo "$label is selected and will start at your next login."
+    fi
 fi
