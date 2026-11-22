@@ -5,6 +5,8 @@ All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `
 ## Unreleased
 
 ### Fixed
+- **The installer ISO created no user account**, so the installed system could not be logged in to (found by installing it in a VM). Bazzite has no GNOME first-boot setup; the installer now creates the account and sets the time zone, and a config check stops the build if that is ever turned off.
+- The login screen showed Bazzite's logo; it now shows the NebulaOS wordmark. (The boot splash still shows Bazzite's logo: it lives in the initramfs.)
 - `nebula status`, `nebula hw` and `nebula doctor` woke a laptop's sleeping dedicated GPU every time (measured: 0.7 to 1.3 s per run on a Legion 5). GPU names now come from the PCI ID database instead of `lspci`, which reads every device's configuration space.
 - `ujust nebula-mode work now` from a text console (Ctrl+Alt+F3) closed the console instead of a stuck Gaming Mode session. It now closes the graphical session.
 - On AMD APUs, the integrated GPU's "power" was the power of the whole processor. It is now reported as `package_power_w`.

@@ -16,6 +16,14 @@ for toml_file in sorted((ROOT / "disk_config").glob("*.toml")):
     except tomllib.TOMLDecodeError as exc:
         errors.append(f"{toml_file.relative_to(ROOT)}: {exc}")
 
+# The base image has no GNOME first-boot setup, so the installer must create the user
+# account: an ISO without the Users module installs a system nobody can log in to.
+iso = tomllib.loads((ROOT / "disk_config/iso.toml").read_text())
+modules = iso.get("customizations", {}).get("installer", {}).get("modules", {})
+users = "org.fedoraproject.Anaconda.Modules.Users"
+if users not in modules.get("enable", []) or users in modules.get("disable", []):
+    errors.append(f"disk_config/iso.toml: the installer must enable {users} (no other way to create an account)")
+
 for list_file in (ROOT / "system_files/usr/share/nebula-os/flatpaks.list",):
     for number, line in enumerate(list_file.read_text().splitlines(), 1):
         app = line.split("#", 1)[0].strip()

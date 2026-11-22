@@ -17,6 +17,7 @@ Every phase ends with tests, documentation, and a release to the `testing` chann
 - [x] NVIDIA edition built in CI (`nebula-os-nvidia`)
 - [ ] Run the update and rollback runbook in a VM and on the reference laptop, and record the results ([RELEASE_PROCESS.md](RELEASE_PROCESS.md#verifying-updates-and-rollback))
 - [ ] Move `cosign.key` to an offline backup; add a backup signing key for rotation
+- [ ] Boot splash: NebulaOS logo in the Plymouth theme (needs the initramfs regenerated in the image build)
 - [ ] Boot test in CI: install or boot the image in QEMU (`tests/vm/`), log in to both modes, switch in both directions, and run an update and a rollback
 - [ ] Security scan policy: decide which Trivy findings block a release (findings inherited from the Bazzite base are tracked, not blocking)
 

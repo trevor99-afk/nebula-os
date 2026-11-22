@@ -66,6 +66,7 @@ check "steamosctl get-default-login-mode fails the same way" bash -c '! steamosc
 check "Steam's Switch to Desktop reaches /usr/lib/os-session-select" grep -q '/usr/lib/os-session-select' /usr/bin/steamos-session-select
 check "GDM profile reads the gdm database" bash -c 'grep -qs "system-db:gdm" /etc/dconf/profile/gdm /usr/share/dconf/profile/gdm'
 check "login screen message is compiled into the gdm database" grep -qa 'banner-message-text' /etc/dconf/db/gdm
+check "login screen shows the NebulaOS logo" bash -c 'grep -qa nebula-os-gdm-logo /etc/dconf/db/gdm && test -s /usr/share/pixmaps/nebula-os-gdm-logo.png'
 
 # --- No AI tools (removed by build_files/25-no-ai.sh) ----------------------------------------
 check "ramalama is not installed" bash -c '! rpm -q ramalama'

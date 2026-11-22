@@ -8,7 +8,7 @@
 
 NebulaOS is built on [Bazzite DX](https://dev.bazzite.gg), so it keeps everything Bazzite provides (Steam, Proton, Gamescope, MangoHud, a gaming-tuned kernel, fresh graphics drivers, automatic updates and one-step rollback). On top, it adds its own tools and identity, and does not rebuild what Bazzite already does well.
 
-> **Status:** testing. The image builds, is signed and passes 47 automated image tests. It has not yet been booted on real hardware. See [what is verified](docs/NEBULAOS_TECHNICAL_AUDIT.md#unverified-needs-a-real-boot).
+> **Status:** testing. The image builds, is signed and passes 48 automated image tests. It has not yet been booted on real hardware. See [what is verified](docs/NEBULAOS_TECHNICAL_AUDIT.md#unverified-needs-a-real-boot).
 
 ## The two modes
 

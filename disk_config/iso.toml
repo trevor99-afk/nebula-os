@@ -16,19 +16,20 @@ bootc switch --mutate-in-place --transport registry "$(cat /usr/share/nebula-os/
 %end
 """
 
-# GNOME creates the user account on first boot, so the installer skips those screens.
-# For a KDE base image, enable the Network, Security, Services, Users and Timezone
-# modules instead (KDE has no first-boot setup).
+# The installer creates the user account and sets the time zone. Bazzite has no
+# GNOME first-boot setup (gnome-initial-setup is not installed), so without the
+# Users module the installed system had no account to log in with (tested in a VM,
+# 2026-11-22).
 [customizations.installer.modules]
 enable = [
   "org.fedoraproject.Anaconda.Modules.Storage",
-  "org.fedoraproject.Anaconda.Modules.Runtime"
+  "org.fedoraproject.Anaconda.Modules.Runtime",
+  "org.fedoraproject.Anaconda.Modules.Users",
+  "org.fedoraproject.Anaconda.Modules.Timezone"
 ]
 disable = [
   "org.fedoraproject.Anaconda.Modules.Network",
   "org.fedoraproject.Anaconda.Modules.Security",
   "org.fedoraproject.Anaconda.Modules.Services",
-  "org.fedoraproject.Anaconda.Modules.Users",
-  "org.fedoraproject.Anaconda.Modules.Subscription",
-  "org.fedoraproject.Anaconda.Modules.Timezone"
+  "org.fedoraproject.Anaconda.Modules.Subscription"
 ]
