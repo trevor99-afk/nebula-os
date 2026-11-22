@@ -27,6 +27,10 @@ if users not in modules.get("enable", []) or users in modules.get("disable", [])
 # The installer leaves /etc/hostname empty, and the computer was then called "bazzite"
 # (VM install, 2026-11-22): the kickstart %post must name it.
 kickstart = iso.get("customizations", {}).get("installer", {}).get("kickstart", {}).get("contents", "")
+# Installs must check update signatures from the start (repository audit, 2026-11-22):
+# without this the system followed "ostree-unverified-registry:" until the user acted.
+if "--enforce-container-sigpolicy" not in kickstart:
+    errors.append("disk_config/iso.toml: the kickstart must switch with --enforce-container-sigpolicy")
 if "/etc/hostname" not in kickstart or "DEFAULT_HOSTNAME" not in kickstart:
     errors.append("disk_config/iso.toml: the kickstart %post must write /etc/hostname from DEFAULT_HOSTNAME")
 

@@ -29,7 +29,7 @@ The NebulaOS installer puts NebulaOS on the computer in one go. Bazzite is alrea
    - **Time & Date**: pick your time zone and press **Done**.
 4. When it says **Complete!**, press **Reboot System** and remove the USB stick.
 5. Log in with the account you created, and choose your mode on the login screen (see [First boot](#first-boot)).
-6. Turn on signature-checked updates once: `ujust nebula-enable-signed-updates`, then restart.
+6. Updates are signature-checked from the start: the installer sets the system to accept only images signed with the NebulaOS key. Check with `nebula doctor` (the Updates line should not warn). If it does warn, run `ujust nebula-enable-signed-updates` once and restart.
 
 **Secure Boot:** Bazzite's kernel is signed with Universal Blue's key. With Secure Boot on, either turn it off before installing, or after the first boot run `ujust enroll-secure-boot-key`, restart, choose **Enroll MOK**, enter `universalblue`, and turn Secure Boot back on.
 

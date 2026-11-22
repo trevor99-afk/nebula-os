@@ -12,7 +12,18 @@
 contents = """
 %post
 rm -f /etc/yum.repos.d/fedora.repo /etc/yum.repos.d/fedora-updates.repo
-bootc switch --mutate-in-place --transport registry "$(cat /usr/share/nebula-os/image-ref)"
+# Follow the published image, with signature checking on from the start: updates must
+# carry a valid cosign signature for /etc/pki/containers/nebula-os.pub (the policy for
+# this image is in /etc/containers/policy.json, written by build_files/40-signing.sh).
+# The installed system records "ostree-image-signed:docker://...". Before, it recorded
+# "ostree-unverified-registry:..." until the user ran `ujust nebula-enable-signed-updates`.
+# If bootc refuses for any reason, follow the image unverified rather than failing the
+# install; `nebula doctor` then reports unsigned updates and how to turn checking on.
+IMAGE_REF="$(cat /usr/share/nebula-os/image-ref)"
+if ! bootc switch --mutate-in-place --enforce-container-sigpolicy --transport registry "$IMAGE_REF"; then
+    echo "NebulaOS: could not turn on signature checking; updates stay unverified until 'ujust nebula-enable-signed-updates'." >&2
+    bootc switch --mutate-in-place --transport registry "$IMAGE_REF"
+fi
 # Name the computer. The installer leaves /etc/hostname empty (its Network module
 # is off), and the boot then falls back to the base image's name, "bazzite"
 # (seen in a VM install, 2026-11-22). DEFAULT_HOSTNAME is nebula-os or nebula-os-nvidia.

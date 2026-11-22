@@ -5,6 +5,7 @@ All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `
 ## Unreleased
 
 ### Fixed
+- **Installs from the ISO did not check update signatures** until the user ran `ujust nebula-enable-signed-updates` (found in the repository audit). The installer now records the image as `ostree-image-signed:`, so every update must carry a valid signature for the NebulaOS key; if bootc refuses, the install still completes and `nebula doctor` reports unsigned updates. The published `:testing` image's signature was verified with `cosign verify`; a fresh install with this setting has not been tested yet.
 - **A fresh install from the ISO had no web browser** (and no text editor, calculator, image or PDF viewer), although Firefox was pinned in the dock: Bazzite's own installer adds these apps, ours did not. They are now the first apps of the first-boot app bundle, and an image test checks that every dock app is shipped or in the bundle. (Found in a GNOME Boxes install.)
 - The installed computer was named "bazzite"; the installer now names it after the edition (`nebula-os`, `nebula-os-nvidia`).
 - The terminal welcome message showed Bazzite's image name and sent "Report an issue" to Bazzite's tracker. It now shows the NebulaOS image and links to NebulaOS issues.
