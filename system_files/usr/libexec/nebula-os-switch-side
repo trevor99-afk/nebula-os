@@ -58,14 +58,18 @@ if [[ "${2:-}" != "--now" ]]; then
     exit 0
 fi
 
-# graphical_sessions: IDs of this user's Wayland/X11 sessions (Gaming or Work Mode).
+# graphical_sessions: IDs of this user's local Wayland/X11 sessions (Gaming or Work
+# Mode). Remote sessions (for example GNOME Remote Login) are left alone. Fails if
+# logind cannot list the sessions.
 graphical_sessions() {
-    local id uid _rest type
-    loginctl list-sessions --no-legend 2>/dev/null | while read -r id uid _rest; do
-        [[ "$uid" == "$(id -u)" ]] || continue
+    local list id uid _rest type remote
+    list=$(loginctl list-sessions --no-legend) || return 1
+    while read -r id uid _rest; do
+        [[ -n "$id" && "$uid" == "$(id -u)" ]] || continue
         type=$(loginctl show-session "$id" -p Type --value 2>/dev/null) || continue
-        if [[ "$type" == wayland || "$type" == x11 ]]; then echo "$id"; fi
-    done
+        remote=$(loginctl show-session "$id" -p Remote --value 2>/dev/null) || remote=no
+        if [[ ("$type" == wayland || "$type" == x11) && "$remote" != yes ]]; then echo "$id"; fi
+    done <<<"$list"
 }
 
 # Leave the graphical session; the login screen then offers the chosen mode.
@@ -84,7 +88,11 @@ if [[ "${XDG_SESSION_TYPE:-}" == wayland || "${XDG_SESSION_TYPE:-}" == x11 ]]; t
 else
     # From a text console (Ctrl+Alt+F3) or SSH, for example when Gaming Mode shows a
     # black screen: end the graphical session, not this console's own session.
-    sessions=$(graphical_sessions || true)
+    if ! sessions=$(graphical_sessions); then
+        echo "$label is selected, but the running sessions could not be listed, so none was closed." >&2
+        echo "Log out of the graphical session, or restart, to switch." >&2
+        exit 1
+    fi
     if [[ -n "$sessions" ]]; then
         for id in $sessions; do loginctl terminate-session "$id"; done
         echo "$label is selected. The graphical session was closed; log in again on the login screen."

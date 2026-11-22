@@ -12,13 +12,18 @@ SWITCH = helpers.ROOT / "system_files" / "usr" / "libexec" / "nebula-os-switch-s
 UID = str(os.getuid())
 
 # Stubs record every call in $LOG. loginctl knows two sessions of this user:
-# c2 is the graphical (Gaming Mode) session, c7 a text console.
+# c2 is the graphical (Gaming Mode) session, c4 a remote graphical session
+# (GNOME Remote Login), c7 a text console; c9 belongs to another user.
 STUBS = {
     "busctl": 'echo "busctl $*" >> "$LOG"; [[ "$1" == get-property ]] && echo "s \\"${SESSION-gnome}\\""; exit 0',
     "loginctl": f'''echo "loginctl $*" >> "$LOG"
 case "$1" in
-    list-sessions) printf '  c2 {UID} tester seat0 1234 user tty2 no -\\n  c7 {UID} tester seat0 2345 user tty3 no -\\n  c9 4242 other seat0 3456 user tty4 no -\\n' ;;
-    show-session) case "$2" in c2) echo wayland ;; c7) echo tty ;; *) echo x11 ;; esac ;;
+    list-sessions)
+        [[ -n "${{LOGINCTL_FAIL:-}}" ]] && exit 1
+        printf '  c2 {UID} tester seat0 1234 user tty2 no -\\n  c4 {UID} tester - 4567 user - no -\\n  c7 {UID} tester seat0 2345 user tty3 no -\\n  c9 4242 other seat0 3456 user tty4 no -\\n' ;;
+    show-session)
+        if [[ "$4" == Remote ]]; then [[ "$2" == c4 ]] && echo yes || echo no
+        else case "$2" in c2 | c4) echo wayland ;; c7) echo tty ;; *) echo x11 ;; esac; fi ;;
 esac''',
     "pgrep": 'exit "${STEAM_RUNNING:-1}"',
     "steam": 'echo "steam $*" >> "$LOG"',
@@ -56,6 +61,16 @@ class SwitchNow(unittest.TestCase):
         proc, calls = run_switch("work", "--now", XDG_SESSION_TYPE="tty", XDG_SESSION_ID="c7")
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(terminated(calls), ["c2"])
+
+    def test_remote_sessions_are_left_alone(self):
+        proc, calls = run_switch("work", "--now", XDG_SESSION_TYPE="tty", XDG_SESSION_ID="c7")
+        self.assertNotIn("c4", terminated(calls))
+
+    def test_loginctl_failure_is_reported_not_hidden(self):
+        proc, calls = run_switch("work", "--now", XDG_SESSION_TYPE="tty", XDG_SESSION_ID="c7", LOGINCTL_FAIL="1")
+        self.assertEqual(proc.returncode, 1)
+        self.assertEqual(terminated(calls), [])
+        self.assertIn("could not be listed", proc.stderr)
 
     def test_ssh_without_graphical_session_only_saves(self):
         proc, calls = run_switch("gaming", "--now", stubs={"loginctl": 'echo "loginctl $*" >> "$LOG"'})
@@ -99,6 +114,36 @@ class Status(unittest.TestCase):
 
     def test_unknown_session_is_an_error_not_work(self):
         self.assertEqual(self.status("plasma"), (1, ""))
+
+
+class SteamHooks(unittest.TestCase):
+    """Steam's "Switch to Desktop" hook and the steamosctl shim call nebula-os-switch-side."""
+
+    def run_hook(self, script, *args, status="work"):
+        with tempfile.TemporaryDirectory() as tmp:
+            stub = Path(tmp) / "switch-side"
+            stub.write_text('#!/usr/bin/bash\necho "$*" >> "$LOG"\n[[ "$1" == status ]] && echo "$STATUS"\nexit 0\n')
+            stub.chmod(0o755)
+            log = Path(tmp) / "log"
+            log.touch()
+            proc = subprocess.run(["bash", str(helpers.ROOT / script), *args], capture_output=True, text=True,
+                                  timeout=20, env={"PATH": "/usr/bin:/bin", "LOG": str(log), "STATUS": status,
+                                                   "NEBULA_SWITCH_SIDE": str(stub)})
+            return proc, log.read_text().splitlines()
+
+    def test_switch_to_desktop_goes_to_work_mode(self):
+        hook = "system_files/usr/lib/os-session-select"
+        for arg in ("plasma", "plasma-wayland-persistent", "plasma-x11-persistent"):
+            self.assertEqual(self.run_hook(hook, arg)[1], ["work --now"], arg)
+        self.assertEqual(self.run_hook(hook, "gamescope")[1], ["gaming --now"])
+
+    def test_steamosctl_shim(self):
+        shim = "system_files/usr/libexec/nebula-os-steamosctl"
+        self.assertEqual(self.run_hook(shim, "switch-to-desktop-mode")[1], ["work --now"])
+        self.assertEqual(self.run_hook(shim, "switch-to-game-mode")[1], ["gaming --now"])
+        self.assertEqual(self.run_hook(shim, "set-default-login-mode", "game")[1], ["gaming"])
+        self.assertEqual(self.run_hook(shim, "get-default-login-mode", status="gaming")[0].stdout.strip(), "game")
+        self.assertEqual(self.run_hook(shim, "get-default-login-mode", status="work")[0].stdout.strip(), "desktop")
 
 
 if __name__ == "__main__":
