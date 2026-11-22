@@ -5,9 +5,13 @@
 # updates. The address is read from the image itself (/usr/share/nebula-os/image-ref,
 # written at build time from REPO_ORGANIZATION and IMAGE_NAME in image-template.env),
 # so this file never needs editing.
+#
+# The ISO is built from disk_config/installer.Containerfile, which adds Fedora's
+# repository files for the installer; they are removed from the installed system.
 [customizations.installer.kickstart]
 contents = """
 %post
+rm -f /etc/yum.repos.d/fedora.repo /etc/yum.repos.d/fedora-updates.repo
 bootc switch --mutate-in-place --transport registry "$(cat /usr/share/nebula-os/image-ref)"
 %end
 """
