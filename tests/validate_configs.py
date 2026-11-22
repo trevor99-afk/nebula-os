@@ -29,6 +29,8 @@ if users not in modules.get("enable", []) or users in modules.get("disable", [])
 kickstart = iso.get("customizations", {}).get("installer", {}).get("kickstart", {}).get("contents", "")
 # Installs must check update signatures from the start (repository audit, 2026-11-22):
 # without this the system followed "ostree-unverified-registry:" until the user acted.
+if "%post --erroronfail" not in kickstart:
+    errors.append("disk_config/iso.toml: %post must use --erroronfail so a failed update-source switch stops the install")
 if "--enforce-container-sigpolicy" not in kickstart:
     errors.append("disk_config/iso.toml: the kickstart must switch with --enforce-container-sigpolicy")
 if "/etc/hostname" not in kickstart or "DEFAULT_HOSTNAME" not in kickstart:
