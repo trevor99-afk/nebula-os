@@ -70,11 +70,14 @@ jobs:
       - name: Free disk space
         run: df -h /
 
-      # Ubuntu restricts unprivileged user namespaces with AppArmor. The image
-      # builder's sandbox needs them; without this its mounts fail with
-      # "permission denied" (run 45018113629). This runner is discarded after the job.
+      # Ubuntu's AppArmor confines bubblewrap, which the image builder (osbuild)
+      # uses as its sandbox, and that blocks the sandbox's mounts ("permission
+      # denied", runs 45018113629 and 45019110928). Unload AppArmor for this job:
+      # GitHub discards the runner afterwards, and the user's system is not involved.
       - name: Allow the image builder's sandbox
-        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo aa-teardown || sudo systemctl stop apparmor || true
 
       - name: Prepare the source image
         env:
@@ -104,6 +107,10 @@ jobs:
             "${BIB_IMAGE}" --type "${DISK_TYPE}" --use-librepo=True "${BUILD_IMAGE}"
           sudo chown -R "${USER_UID}:${USER_GID}" output
           find output -type f -printf '%p %s bytes\n'
+
+      - name: Show kernel denials (on failure)
+        if: failure()
+        run: sudo dmesg | grep -iE "apparmor|denied|audit" | tail -n 30 || true
 
       - name: Upload disk images and Checksum to Job Artifacts
         if: inputs.upload-to-s3 != true
