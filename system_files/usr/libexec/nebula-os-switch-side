@@ -4,17 +4,27 @@
 #   work    NebulaOS Work Mode: GNOME desktop with the developer tools and Bazaar
 #
 # Usage: nebula-os-switch-side gaming|work|status [--now]
+#        nebula-os-switch-side chooser on|off
 #   Without --now, only the mode pre-selected at the next login changes.
 #   With --now, you are also logged out so you can sign in to that mode. From a
 #   text console or SSH, --now closes your graphical session (for example a
 #   Gaming Mode stuck on a black screen) instead of the console session.
+#   status prints gaming, work or chooser.
+#   chooser on: show the full-screen mode chooser after every login (the
+#   "NebulaOS" session, /usr/libexec/nebula-os-start); off: start the last mode
+#   directly again.
 #
 # The choice is stored with AccountsService, which the login screen (GDM)
 # reads to pre-select the session. No password is needed for your own account.
+# With the chooser on, AccountsService keeps the chooser session, and gaming or
+# work becomes a one-time choice (~/.local/state/nebula-os/next-mode): the
+# next start skips the chooser once. Inside the chooser session, --now ends the
+# current mode and the chooser session starts the other one without a new login.
 set -euo pipefail
 
 GAMING_SESSION="gamescope-session-steam"
 WORK_SESSION="gnome"
+CHOOSER_SESSION="nebula-os"
 USER_PATH="/org/freedesktop/Accounts/User$(id -u)"
 
 current_session() {
@@ -22,10 +32,49 @@ current_session() {
         | awk '{print $2}' | tr -d '"'
 }
 
+set_session() {
+    busctl call org.freedesktop.Accounts "$USER_PATH" org.freedesktop.Accounts.User SetSession s "$1"
+    busctl call org.freedesktop.Accounts "$USER_PATH" org.freedesktop.Accounts.User SetSessionType s wayland
+}
+
+state_dir() { echo "${XDG_STATE_HOME:-${HOME:?HOME is not set}/.local/state}/nebula-os"; }
+
+# remember FILE MODE: write a mode to a state file (never through a symbolic link).
+remember() {
+    local dir file
+    dir=$(state_dir)
+    file="$dir/$1"
+    mkdir -p "$dir"
+    if [[ -L "$file" || -L "$file.tmp" ]]; then
+        echo "Refusing to write $file: it is a symbolic link." >&2
+        exit 1
+    fi
+    printf '%s\n' "$2" >"$file.tmp"
+    mv -f "$file.tmp" "$file"
+}
+
 side="${1:-}"
 case "$side" in
     gaming) session="$GAMING_SESSION" ;;
     work) session="$WORK_SESSION" ;;
+    chooser)
+        case "${2:-}" in
+            on)
+                set_session "$CHOOSER_SESSION"
+                echo "The full-screen mode chooser will appear after you log in."
+                ;;
+            off)
+                last=$(cat "$(state_dir)/last-mode" 2>/dev/null || true)
+                if [[ "$last" == gaming ]]; then set_session "$GAMING_SESSION"; else set_session "$WORK_SESSION"; last=work; fi
+                echo "The mode chooser is off; NebulaOS $([[ $last == gaming ]] && echo Gaming || echo Work) Mode will start after you log in."
+                ;;
+            *)
+                echo "Usage: ${0##*/} chooser on|off" >&2
+                exit 2
+                ;;
+        esac
+        exit 0
+        ;;
     status)
         if ! current=$(current_session); then
             echo "Could not read the login mode from AccountsService." >&2
@@ -36,6 +85,8 @@ case "$side" in
             gamescope-session*) echo "gaming" ;;
             # GNOME. No saved session yet: GDM falls back to the "gnome" session.
             gnome | gnome-wayland | gnome-xorg | "") echo "work" ;;
+            # The full-screen chooser after login (the "NebulaOS" session).
+            "$CHOOSER_SESSION") echo "chooser" ;;
             *)
                 echo "The saved login session \"$current\" is neither NebulaOS Gaming Mode nor Work Mode." >&2
                 exit 1
@@ -44,17 +95,24 @@ case "$side" in
         exit 0
         ;;
     *)
-        echo "Usage: ${0##*/} gaming|work|status [--now]" >&2
+        echo "Usage: ${0##*/} gaming|work|status [--now] | chooser on|off" >&2
         exit 2
         ;;
 esac
 
-busctl call org.freedesktop.Accounts "$USER_PATH" org.freedesktop.Accounts.User SetSession s "$session"
-busctl call org.freedesktop.Accounts "$USER_PATH" org.freedesktop.Accounts.User SetSessionType s wayland
-
 label="NebulaOS $([[ $side == gaming ]] && echo "Gaming" || echo "Work") Mode"
+if current=$(current_session 2>/dev/null) && [[ "$current" == "$CHOOSER_SESSION" ]]; then
+    # Keep the chooser; skip it once for this mode.
+    remember next-mode "$side"
+    remember last-mode "$side"
+    when="will start next, without the mode chooser (just this once)"
+else
+    set_session "$session"
+    when="will be selected at your next login"
+fi
+
 if [[ "${2:-}" != "--now" ]]; then
-    echo "$label will be selected at your next login."
+    echo "$label $when."
     exit 0
 fi
 

@@ -25,6 +25,7 @@ All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `
 - `nebula-os-switch-side status` reports an unknown saved session as an error instead of Work Mode.
 
 ### Added
+- **Full-screen mode chooser after login** (the new default session "NebulaOS"): two large choices, Gaming Mode and Work Mode, for mouse, keyboard or controller, plus Log out, Restart and Power off. Switching from inside a mode starts the other mode without the login screen; a Gaming Mode that cannot start returns to the chooser with a message; if the chooser cannot run, Work Mode starts. New users get it by default; `ujust nebula-mode chooser` / `chooser-off` turn it on or off. Tested in a GNOME Boxes VM: the chooser after login, a failed Gaming Mode start returning to it, and Work Mode starting afterwards. Not yet tested: switching from Work Mode to a working Gaming Mode and back on real hardware.
 - [Backend and Gaming Mode audit](docs/BACKEND_GAMING_AUDIT.md), with the Legion 5 15ACH6A as the primary target.
 
 ### Removed

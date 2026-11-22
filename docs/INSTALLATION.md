@@ -63,7 +63,7 @@ If Bazzite is already installed, you can switch it to NebulaOS instead. Your fil
 
 ## First boot
 
-- **Choose your mode on the login screen:** select your user, click the gear button at the bottom right, and choose **NebulaOS Gaming Mode** or **NebulaOS Work Mode**. The login screen remembers your last choice. `ujust nebula-mode gaming` or `ujust nebula-mode work` sets it from a terminal.
+- **Choose your mode after you log in:** a full-screen menu offers **Gaming Mode** and **Work Mode** (mouse, keyboard or controller; the last choice is highlighted). Switching modes later (the dock's *Switch to Gaming Mode*, Steam's *Switch to Desktop*) goes straight to the other mode without the login screen, and if Gaming Mode cannot start, the menu comes back with a message. To skip the menu and start one mode directly, pick **NebulaOS Gaming Mode** or **NebulaOS Work Mode** from the gear button on the login screen, or run `ujust nebula-mode chooser-off`; `ujust nebula-mode chooser` turns the menu back on.
 - **The app bundle installs in the background** over the first minutes: everyday apps first (Firefox, Text Editor, Calculator, Image Viewer, Document Viewer, Flatseal, Extension Manager), then Heroic, Bottles, OBS, Vesktop, MangoJuice, RetroArch, Dolphin and PCSX2. Until Firefox arrives, its dock icon does nothing. Check progress with `ujust nebula-info`.
 - **Docker:** administrator accounts are added to the `docker` and `libvirt` groups on first boot. Log out and in once before using `docker` without `sudo`.
 - **Check the system:** `nebula doctor` and `nebula hw`.

@@ -54,7 +54,9 @@ class SwitchNow(unittest.TestCase):
     def test_saves_the_mode_first(self):
         proc, calls = run_switch("work", "--now", XDG_SESSION_TYPE="tty", XDG_SESSION_ID="c7")
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("SetSession s gnome", calls[0])
+        saved = next(i for i, c in enumerate(calls) if "SetSession s gnome" in c)
+        first_logout = next(i for i, c in enumerate(calls) if c.startswith("loginctl terminate-session"))
+        self.assertLess(saved, first_logout)
 
     def test_text_console_closes_the_graphical_session_not_itself(self):
         # Gaming Mode hangs on a black screen; the user runs `ujust nebula-mode work now` on Ctrl+Alt+F3.
@@ -148,3 +150,64 @@ class SteamHooks(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Chooser(unittest.TestCase):
+    """The full-screen chooser session ("nebula-os") keeps its place in AccountsService."""
+
+    def run_in_home(self, *args, **env):
+        home = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", home]))
+        proc, calls = run_switch(*args, HOME=home, **env)
+        state = Path(home) / ".local" / "state" / "nebula-os"
+        read = lambda name: (state / name).read_text().strip() if (state / name).exists() else None  # noqa: E731
+        return proc, calls, read
+
+    def test_status_reports_the_chooser(self):
+        proc, _ = run_switch("status", SESSION="nebula-os")
+        self.assertEqual((proc.returncode, proc.stdout.strip()), (0, "chooser"))
+
+    def test_switch_keeps_the_chooser_and_skips_it_once(self):
+        proc, calls, read = self.run_in_home("gaming", SESSION="nebula-os")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertFalse(any("SetSession" in c for c in calls), calls)
+        self.assertEqual((read("next-mode"), read("last-mode")), ("gaming", "gaming"))
+        self.assertIn("just this once", proc.stdout)
+
+    def test_switch_now_inside_the_chooser_session_ends_only_the_mode(self):
+        # Work Mode started by the chooser: GNOME quits, and the chooser session starts Gaming Mode.
+        proc, calls, read = self.run_in_home("gaming", "--now", SESSION="nebula-os", XDG_SESSION_TYPE="wayland",
+                                             XDG_CURRENT_DESKTOP="GNOME", XDG_SESSION_ID="c2")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(read("next-mode"), "gaming")
+        self.assertIn("gnome-session-quit --logout --no-prompt", calls)
+        self.assertEqual(terminated(calls), [])
+
+    def test_without_the_chooser_nothing_is_written_to_home(self):
+        proc, calls, read = self.run_in_home("work", SESSION="gamescope-session-steam")
+        self.assertIn("busctl call org.freedesktop.Accounts /org/freedesktop/Accounts/User%s "
+                      "org.freedesktop.Accounts.User SetSession s gnome" % UID, calls)
+        self.assertIsNone(read("next-mode"))
+
+    def test_chooser_on_and_off(self):
+        proc, calls, _ = self.run_in_home("chooser", "on")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue(any("SetSession s nebula-os" in c for c in calls), calls)
+        home = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", home]))
+        state = Path(home) / ".local" / "state" / "nebula-os"
+        state.mkdir(parents=True)
+        (state / "last-mode").write_text("gaming\n")
+        proc, calls = run_switch("chooser", "off", HOME=home)
+        self.assertTrue(any("SetSession s gamescope-session-steam" in c for c in calls), calls)
+
+    def test_refuses_symlinked_state(self):
+        home = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", home]))
+        state = Path(home) / ".local" / "state" / "nebula-os"
+        state.mkdir(parents=True)
+        target = Path(home) / "elsewhere"
+        os.symlink(target, state / "next-mode")
+        proc, _ = run_switch("gaming", SESSION="nebula-os", HOME=home)
+        self.assertEqual(proc.returncode, 1)
+        self.assertFalse(target.exists())

@@ -1,0 +1,129 @@
+#!/usr/bin/bash
+# The "NebulaOS" login session: a full-screen chooser for Gaming Mode or Work
+# Mode, then the chosen mode. GDM starts it after the password, like any session
+# (system_files/usr/share/wayland-sessions/nebula-os.desktop).
+#
+#  - A one-time choice made elsewhere (the dock launcher, Steam's "Switch to
+#    Desktop", `ujust nebula-mode gaming now`) is in ~/.local/state/nebula-os/
+#    next-mode. It starts that mode without asking.
+#  - Switching modes from inside a mode ends that mode and starts the other one
+#    here, without going back to the login screen.
+#  - If Gaming Mode stops within a minute (it could not start, for example
+#    without a usable GPU), the chooser comes back with a message.
+#  - If the chooser itself cannot run, Work Mode starts, so nobody is stuck.
+#  - Logging out normally ends the session and returns to the login screen.
+set -uo pipefail
+
+SESSIONS=${NEBULA_SESSIONS_DIR:-/usr/share/wayland-sessions}
+GAMING_FILE=gamescope-session-steam.desktop
+WORK_FILE=gnome.desktop
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/nebula-os"
+CHOOSER=${NEBULA_CHOOSER:-/usr/libexec/nebula-os-chooser}
+CAGE=${NEBULA_CAGE:-cage}
+QUICK_FAIL=${NEBULA_QUICK_FAIL:-60}
+
+log() { echo "nebula-os-start: $*" >&2; }
+
+# desktop_key FILE KEY: the value of KEY in a session .desktop file.
+desktop_key() { sed -n "s/^$2=//p" "$SESSIONS/$1" | head -n 1; }
+
+# take_next: print the one-time mode request (if any) and remove it.
+take_next() {
+    local file="$STATE_DIR/next-mode" mode=""
+    if [[ -f "$file" && ! -L "$file" ]]; then
+        mode=$(tr -d '[:space:]' <"$file")
+    fi
+    rm -f "$file"
+    case "$mode" in gaming | work) echo "$mode" ;; esac
+}
+
+# run_chooser [MESSAGE]: show the full-screen chooser; print the choice.
+run_chooser() {
+    local result choice args=(--result)
+    result=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/nebula-chooser.XXXXXX") || return 1
+    args+=("$result")
+    [[ -n "${1:-}" ]] && args+=(--message "$1")
+    # No desktop portals or accessibility bus: services started now would keep this
+    # session's settings and serve the mode that follows with the wrong ones.
+    # Software drawing (cairo) works on every GPU and in virtual machines.
+    env GDK_DEBUG=no-portals GSK_RENDERER=cairo NO_AT_BRIDGE=1 GTK_A11Y=none \
+        "$CAGE" -d -- "$CHOOSER" "${args[@]}" >&2
+    choice=$(tr -d '[:space:]' <"$result")
+    rm -f "$result"
+    echo "$choice"
+}
+
+# reset_user_environment: forget the previous mode's variables in the user
+# service manager before starting the next mode in the same login.
+reset_user_environment() {
+    systemctl --user unset-environment WAYLAND_DISPLAY DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP \
+        XDG_SESSION_DESKTOP DESKTOP_SESSION XDG_MENU_PREFIX GNOME_SETUP_DISPLAY XDG_DESKTOP_PORTAL_DIR \
+        2>/dev/null || true
+    systemctl --user stop xdg-desktop-portal.service xdg-desktop-portal-gnome.service \
+        xdg-desktop-portal-gtk.service 2>/dev/null || true
+}
+
+# start_session FILE: run a session the way GDM would (its Exec line, with the
+# desktop variables GDM sets from the file), and wait for it to end.
+start_session() {
+    local file=$1 exec_line desktop cmd
+    exec_line=$(desktop_key "$file" Exec)
+    desktop=$(desktop_key "$file" DesktopNames)
+    if [[ -z "$exec_line" ]]; then
+        log "$SESSIONS/$file has no Exec line"
+        return 127
+    fi
+    desktop=${desktop%;}
+    export XDG_SESSION_DESKTOP=${file%.desktop} DESKTOP_SESSION=${file%.desktop}
+    export XDG_CURRENT_DESKTOP=${desktop//;/:}
+    read -ra cmd <<<"$exec_line" # these Exec lines have no quoting
+    log "starting ${file%.desktop}: ${cmd[*]}"
+    "${cmd[@]}"
+}
+
+message=""
+choice=$(take_next)
+started=0
+while true; do
+    if [[ -z "$choice" ]]; then
+        choice=$(run_chooser "$message") || choice=""
+        message=""
+        case "$choice" in
+            gaming | work | logout | reboot | poweroff) ;;
+            *)
+                log "the chooser did not run or returned '${choice}'; starting Work Mode"
+                choice=work
+                ;;
+        esac
+    fi
+    case "$choice" in
+        logout) exit 0 ;;
+        reboot) systemctl reboot; exit 0 ;;
+        poweroff) systemctl poweroff; exit 0 ;;
+    esac
+
+    ((started)) && reset_user_environment
+    started=1
+    ran=$choice
+    began=$SECONDS
+    if [[ "$ran" == gaming ]]; then
+        start_session "$GAMING_FILE"
+    else
+        start_session "$WORK_FILE"
+    fi
+    status=$?
+    lasted=$((SECONDS - began))
+    log "${ran} mode ended after ${lasted}s (exit status ${status})"
+
+    # A switch requested from inside the mode: start the other mode right away.
+    choice=$(take_next)
+    [[ -n "$choice" ]] && continue
+
+    # Gaming Mode that stops this quickly did not start: offer the choice again
+    # instead of dropping back to the login screen.
+    if [[ "$ran" == gaming && $lasted -lt $QUICK_FAIL ]]; then
+        message="Gaming Mode could not start on this computer (it stopped after ${lasted} seconds). Choose Work Mode, or try again."
+        continue
+    fi
+    exit "$status"
+done

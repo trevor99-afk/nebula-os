@@ -58,6 +58,11 @@ check "nebula doctor --json is valid" bash -c 'nebula doctor --json | jq -e ".sc
 S=/usr/share/wayland-sessions
 check "Gaming Mode session is named" grep -qx 'Name=NebulaOS Gaming Mode' "$S/gamescope-session-steam.desktop"
 check "Work Mode session is named" grep -qx 'Name=NebulaOS Work Mode' "$S/gnome.desktop"
+check "the NebulaOS chooser session exists" grep -qx 'Exec=/usr/libexec/nebula-os-start' "$S/nebula-os.desktop"
+check "new users get the chooser session" grep -qx 'DefaultSession=nebula-os.desktop' /etc/gdm/custom.conf
+check "the chooser has what it needs (cage, GTK 4, libadwaita, evdev)" bash -c 'command -v cage && rpm -q gtk4 libadwaita python3-gobject python3-evdev'
+check "the chooser program compiles and imports its helper" bash -c 'python3 -I -c "import sys; sys.path.insert(0, \"/usr/lib/nebula-os\"); from nebula import modes; print(modes.gaming_support())" && python3 -m py_compile /usr/libexec/nebula-os-chooser'
+check "the session wrapper and chooser are executable" test -x /usr/libexec/nebula-os-start -a -x /usr/libexec/nebula-os-chooser
 check "Work Mode has no leftover translated names" bash -c "! grep -q '^Name\\[' $S/gnome.desktop"
 check "steamosctl is available for Bazzite's switching tools" test -x /usr/bin/steamosctl
 # This container has no system bus, so the saved mode cannot be read: both must fail, not guess.

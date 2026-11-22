@@ -84,7 +84,7 @@ while (( SECONDS < deadline )); do
     if python3 tests/vm/qmp.py "$qmp_socket" shot "$results_dir/login-screen.png" 2>/dev/null; then
         if tesseract "$results_dir/login-screen.png" stdout 2>/dev/null \
             | tr '[:upper:]' '[:lower:]' \
-            | grep -q 'choose your mode'; then
+            | grep -q 'choose gaming mode'; then
             echo "NebulaOS GDM login banner detected."
             exit 0
         fi
