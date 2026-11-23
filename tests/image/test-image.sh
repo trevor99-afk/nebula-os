@@ -37,6 +37,9 @@ fi
 # bootc only enforces signatures (the installer's --enforce-container-sigpolicy) when the
 # global default is not insecureAcceptAnything. Universal Blue ships "reject"; catch a change.
 check "signature policy's global default is reject" jq -e '.default[0].type == "reject"' /etc/containers/policy.json
+# No hidden telemetry: Fedora's anonymous counter stays off (and presets keep it off).
+check "rpm-ostree-countme timer is disabled (exactly)" bash -c '[[ "$(systemctl is-enabled rpm-ostree-countme.timer 2>/dev/null)" == disabled ]]'
+check "a preset keeps rpm-ostree-countme disabled" grep -qx 'disable rpm-ostree-countme.timer' /usr/lib/systemd/system-preset/10-nebula-os.preset
 if [[ -n "$EXPECTED_REPO_URL" ]]; then
     check "os-release links to $EXPECTED_REPO_URL" \
         test "${HOME_URL:-}|${BUG_REPORT_URL:-}" = "$EXPECTED_REPO_URL|$EXPECTED_REPO_URL/issues"
