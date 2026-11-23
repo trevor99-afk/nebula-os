@@ -33,6 +33,18 @@ class SavedChoices(unittest.TestCase):
         self.assertEqual(modes.take_next_mode(self.home), "work")
         self.assertIsNone(modes.take_next_mode(self.home))
 
+    def test_planted_tmp_symlink_is_not_followed(self):
+        # Red-team finding R02-1: a symlink at the old predictable "last-mode.tmp" redirected the write.
+        state = modes.state_dir(self.home)
+        state.mkdir(parents=True)
+        marker = Path(self.home) / "marker"
+        marker.write_text("original\n")
+        os.symlink(marker, state / "last-mode.tmp")
+        modes.save_last_mode("gaming", self.home)
+        self.assertEqual(marker.read_text(), "original\n")
+        self.assertEqual(modes.last_mode(self.home), "gaming")
+        self.assertEqual(sorted(p.name for p in state.iterdir() if p.name.startswith(".")), [])
+
     def test_garbage_is_ignored(self):
         path = modes.state_dir(self.home) / "last-mode"
         path.parent.mkdir(parents=True)

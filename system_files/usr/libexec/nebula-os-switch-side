@@ -41,16 +41,19 @@ state_dir() { echo "${XDG_STATE_HOME:-${HOME:?HOME is not set}/.local/state}/neb
 
 # remember FILE MODE: write a mode to a state file (never through a symbolic link).
 remember() {
-    local dir file
+    local dir file tmp
     dir=$(state_dir)
     file="$dir/$1"
     mkdir -p "$dir"
-    if [[ -L "$file" || -L "$file.tmp" ]]; then
+    if [[ -L "$file" ]]; then
         echo "Refusing to write $file: it is a symbolic link." >&2
         exit 1
     fi
-    printf '%s\n' "$2" >"$file.tmp"
-    mv -f "$file.tmp" "$file"
+    # Random, exclusively created temporary file, then rename: a symlink planted at a predictable
+    # name cannot redirect the write, and mv replaces a link itself rather than its target.
+    tmp=$(mktemp "$dir/.$1.XXXXXX") || exit 1
+    printf '%s\n' "$2" >"$tmp"
+    mv -f "$tmp" "$file"
 }
 
 side="${1:-}"

@@ -12,6 +12,7 @@ State files (per user, in ~/.local/state/nebula-os/):
 """
 
 import os
+import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -48,12 +49,22 @@ def _read_mode(path: Path) -> Optional[str]:
 def _write_mode(path: Path, mode: str) -> None:
     if mode not in MODES:
         raise ValueError(f"unknown mode: {mode}")
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     if path.is_symlink():
         raise OSError(f"{path} is a symbolic link")
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(mode + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    # A random, exclusively created temporary file, then an atomic rename: a symlink planted at a
+    # predictable "*.tmp" name can no longer redirect the write (red-team finding R02-1).
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(mode + "\n")
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def last_mode(home: Optional[str] = None) -> Optional[str]:

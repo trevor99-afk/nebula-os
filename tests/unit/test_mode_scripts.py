@@ -234,3 +234,19 @@ class FlatpakInstallerArguments(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         self.assertIn("Usage:", proc.stderr)
         self.assertEqual(proc.stdout, "")
+
+
+class StateFileSafety(unittest.TestCase):
+    def test_planted_tmp_symlink_is_not_followed(self):
+        # Red-team finding R02-1 (shell side): next-mode.tmp used to be a predictable name.
+        home = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", home]))
+        state = Path(home) / ".local" / "state" / "nebula-os"
+        state.mkdir(parents=True)
+        marker = Path(home) / "marker"
+        marker.write_text("original\n")
+        os.symlink(marker, state / "next-mode.tmp")
+        proc, _ = run_switch("gaming", SESSION="nebula-os", HOME=home)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(marker.read_text(), "original\n")
+        self.assertEqual((state / "next-mode").read_text().strip(), "gaming")
