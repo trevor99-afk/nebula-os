@@ -31,10 +31,39 @@ kickstart = iso.get("customizations", {}).get("installer", {}).get("kickstart", 
 # without this the system followed "ostree-unverified-registry:" until the user acted.
 if "%post --erroronfail" not in kickstart:
     errors.append("disk_config/iso.toml: %post must use --erroronfail so a failed update-source switch stops the install")
-if "--enforce-container-sigpolicy" not in kickstart:
-    errors.append("disk_config/iso.toml: the kickstart must switch with --enforce-container-sigpolicy")
+switches = [line for line in kickstart.splitlines() if line.strip().startswith(("bootc switch", "if ! bootc switch"))]
+if not switches or any("--enforce-container-sigpolicy" not in line for line in switches):
+    errors.append("disk_config/iso.toml: every kickstart 'bootc switch' must use --enforce-container-sigpolicy "
+                  "(no unverified fallback: red-team R06-1 / security review)")
 if "/etc/hostname" not in kickstart or "DEFAULT_HOSTNAME" not in kickstart:
     errors.append("disk_config/iso.toml: the kickstart %post must write /etc/hostname from DEFAULT_HOSTNAME")
+
+# Supply chain (security review and red team, 2026-11-23): builds use pinned, verified images.
+DIGEST_REF = re.compile(r"^[a-z0-9./-]+@sha256:[0-9a-f]{64}$")
+lock = [l.strip() for l in (ROOT / "base-images.lock").read_text().splitlines() if l.strip() and not l.startswith("#")]
+for line in lock:
+    if not DIGEST_REF.match(line):
+        errors.append(f"base-images.lock: not a pinned digest reference: {line}")
+build_yml = (ROOT / ".github/workflows/build.yml").read_text()
+for base in re.findall(r"base_image:\s*(\S+)", build_yml):
+    repo = base.rsplit(":", 1)[0]
+    if not any(l.startswith(repo + "@sha256:") for l in lock):
+        errors.append(f"base-images.lock: no reviewed digest for {repo} (used in build.yml)")
+for needle in ("cosign verify --new-bundle-format=false --key keys/ublue-os.pub", "base-images.lock",
+               "BASE_IMAGE: ${{ env.BASE_IMAGE_PINNED }}"):
+    if needle not in build_yml:
+        errors.append(f".github/workflows/build.yml: missing base image verification ({needle})")
+if "BEGIN PUBLIC KEY" not in (ROOT / "keys/ublue-os.pub").read_text():
+    errors.append("keys/ublue-os.pub: not a PEM public key")
+disk_yml = (ROOT / ".github/workflows/build-disk.yml").read_text()
+bib = re.search(r'BIB_IMAGE:\s*"([^"]+)"', disk_yml)
+if not bib or not DIGEST_REF.match(bib.group(1)):
+    errors.append(".github/workflows/build-disk.yml: BIB_IMAGE must be pinned by digest (it runs --privileged)")
+if "cosign verify --key cosign.pub" not in disk_yml or "PROVENANCE.txt" not in disk_yml:
+    errors.append(".github/workflows/build-disk.yml: must verify the source image signature and record provenance")
+justfile = (ROOT / "Justfile").read_text()
+if re.search(r"quay\.io/coreos/chunkah:(?!.*@sha256)", justfile) or "quay.io/coreos/chunkah@sha256:" not in justfile:
+    errors.append("Justfile: chunkah must be pinned by digest")
 
 for list_file in (ROOT / "system_files/usr/share/nebula-os/flatpaks.list",):
     for number, line in enumerate(list_file.read_text().splitlines(), 1):

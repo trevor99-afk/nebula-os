@@ -1,0 +1,6 @@
+# Reviewed Bazzite base images, pinned by digest (security review / red team, 2026-11-23).
+# CI builds only from these digests, after verifying each one's Universal Blue signature with
+# keys/ublue-os.pub. .github/workflows/update-base.yml checks daily for newer :stable images,
+# verifies their signatures and proposes the new digests for review.
+ghcr.io/ublue-os/bazzite-dx-gnome@sha256:af25134b0eeb829e5f35cb0075aab31b3385eb646e9106b3e5981ccaae8f5a75
+ghcr.io/ublue-os/bazzite-dx-nvidia-gnome@sha256:5891f8d548f38a700ad6c57687a08d1ec67fd696a2ff9cb97382c4bd4d04e069

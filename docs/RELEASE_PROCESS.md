@@ -24,6 +24,10 @@ A failure at any step means nothing is published to that channel.
 
 The **Build disk images** workflow boots its qcow2 on an Ubuntu GitHub runner with KVM and UEFI, then uses OCR on a GDM screenshot to check for the text “Choose Gaming Mode.” This only verifies that the login screen appeared; it does not log in or exercise either session. A boot failure uploads the screenshot and QEMU logs as a run artifact. Start it from **Actions → Build disk images → Run workflow**; the boot check runs automatically after the disk artifacts are built. It is skipped when uploading directly to S3.
 
+## Updating the Bazzite base
+
+Builds use the reviewed digests in `base-images.lock`, not Bazzite's moving `:stable` tag. Every day `update-base.yml` resolves the newest `:stable` digests, verifies their Universal Blue signatures and, if they changed, opens a pull request to `dev`. Review it and merge to build NebulaOS on the new base; then promote to stable as usual. The pull request needs the repository setting **Settings › Actions › General › Allow GitHub Actions to create and approve pull requests**. Without it the workflow still verifies the new digests and shows them in its log, so you can update `base-images.lock` by hand.
+
 ## Promoting testing to stable
 
 1. Merge changes into `dev`; CI publishes `:testing`.

@@ -93,14 +93,17 @@ set_os_release IMAGE_VERSION "${IMAGE_VERSION:-${IMAGE_TAG}.local}"
 # installer (disk_config/iso.toml), `nebula status` and the `ujust nebula-*` commands.
 install -d /usr/share/nebula-os
 echo "${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" >/usr/share/nebula-os/image-ref
-echo "${BASE_IMAGE}" >/usr/share/nebula-os/base-image
+# Record the base by name (e.g. ...:stable), not by the pinned digest CI builds from, so that
+# `ujust nebula-switch-to-bazzite` returns to an updating Bazzite.
+BASE_NAME="${BASE_IMAGE_NAME:-$BASE_IMAGE}"
+echo "${BASE_NAME}" >/usr/share/nebula-os/base-image
 jq -n \
     --arg name "$IMAGE_NAME" \
     --arg pretty "$IMAGE_PRETTY_NAME" \
     --arg channel "$IMAGE_TAG" \
     --arg version "${IMAGE_VERSION:-${IMAGE_TAG}.local}" \
     --arg git_sha "${GIT_SHA:-}" \
-    --arg base_image "$BASE_IMAGE" \
+    --arg base_image "$BASE_NAME" \
     --arg base_digest "${BASE_DIGEST:-}" \
     --arg built "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{name: $name, pretty_name: $pretty, channel: $channel, version: $version, git_sha: $git_sha,

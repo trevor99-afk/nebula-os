@@ -4,6 +4,15 @@ All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `
 
 ## Unreleased
 
+### Security
+Fixes from the red-team exercise (10 attackers) and the full security review, each with a regression check:
+- **Installer: no unverified fallback.** If signature checking cannot be turned on, the installation now stops with an error instead of following the image without checks.
+- **Pinned, verified Bazzite base.** Builds use the reviewed digests in `base-images.lock` after verifying Universal Blue's signature; a daily workflow proposes verified updates.
+- **Pinned builders.** `bootc-image-builder` (runs privileged) and `chunkah` are pinned by digest. Disk images are built only from a signature-verified NebulaOS image and ship `PROVENANCE.txt`.
+- **State files:** the chooser and `nebula-os-switch-side` wrote through predictable `*.tmp` names, so a planted symlink could redirect the write; they now use exclusive random temporary files.
+- **App installer:** installs only when the `flathub` remote really points to Flathub.
+- Documented accepted risks: the root-equivalent `docker` group, the desktop firewall zone, and broad Flathub app permissions (SECURITY.md).
+
 ### Fixed
 - **No hidden telemetry:** Fedora's `rpm-ostree-countme` timer (an anonymous weekly usage ping to Fedora) is now disabled, and a preset keeps it off. It also failed on image-based systems (found in the 12-hour VM stability run). An image test checks it.
 - **Installs from the ISO did not check update signatures** until the user ran `ujust nebula-enable-signed-updates` (found in the repository audit). The installer now records the image as `ostree-image-signed:`, so every update must carry a valid signature for the NebulaOS key; if bootc refuses, the install still completes and `nebula doctor` reports unsigned updates. The published `:testing` image's signature was verified with `cosign verify`; a fresh install with this setting has not been tested yet.

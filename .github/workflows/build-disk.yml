@@ -30,7 +30,9 @@ on:
 
 env:
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"  # do not edit
-  BIB_IMAGE: "quay.io/centos-bootc/bootc-image-builder:latest"
+  # Pinned by digest (it runs --privileged): the tag "latest" as of 2026-11-23. Update deliberately:
+  #   skopeo inspect --format "{{.Digest}}" docker://quay.io/centos-bootc/bootc-image-builder:latest
+  BIB_IMAGE: "quay.io/centos-bootc/bootc-image-builder@sha256:dab86ee6b46dcade411b37f4e70b07d93b6a06da0dbfec6fe89247a220e0d9f8"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -79,12 +81,29 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           sudo aa-teardown || sudo systemctl stop apparmor || true
 
+      # Only a NebulaOS image whose signature verifies with cosign.pub goes into a disk image,
+      # and it is used by that exact digest from here on.
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+        with:
+          cosign-release: 'v3.1.4'
+
+      - name: Verify the NebulaOS source image
+        env:
+          SOURCE_TAG: ${{ env.IMAGE_REGISTRY }}/${{ inputs.image }}:${{ inputs.tag }}
+        run: |
+          digest=$(skopeo inspect --format '{{.Digest}}' "docker://${SOURCE_TAG}")
+          cosign verify --key cosign.pub "${SOURCE_TAG%:*}@${digest}" > /dev/null
+          echo "Verified ${SOURCE_TAG} = ${digest} with cosign.pub."
+          echo "SOURCE_DIGEST=${digest}" >> "${GITHUB_ENV}"
+
       - name: Prepare the source image
         env:
           SOURCE_IMAGE: ${{ env.IMAGE_REGISTRY }}/${{ inputs.image }}:${{ inputs.tag }}
           DISK_TYPE: ${{ matrix.disk-type }}
         run: |
-          sudo podman pull "${SOURCE_IMAGE}"
+          sudo podman pull "${SOURCE_IMAGE%:*}@${SOURCE_DIGEST}"
+          sudo podman tag "${SOURCE_IMAGE%:*}@${SOURCE_DIGEST}" "${SOURCE_IMAGE}"
           if [[ "${DISK_TYPE}" == anaconda-iso ]]; then
             # The builder only reads /etc/yum.repos.d; see disk_config/installer.Containerfile.
             sudo podman build --pull=never --build-arg "BASE_IMAGE=${SOURCE_IMAGE}" \
@@ -106,6 +125,14 @@ jobs:
             -v ./output:/output -v "./${CONFIG_FILE}:/config.toml:ro" \
             "${BIB_IMAGE}" --type "${DISK_TYPE}" --use-librepo=True "${BUILD_IMAGE}"
           sudo chown -R "${USER_UID}:${USER_GID}" output
+          # Provenance: which builder and which source image produced these files.
+          {
+            echo "builder: ${BIB_IMAGE}"
+            echo "builder image id: $(sudo podman image inspect --format '{{.Id}}' "${BIB_IMAGE}")"
+            echo "source image: ${IMAGE_REGISTRY}/${{ inputs.image }}:${{ inputs.tag }} @ ${SOURCE_DIGEST} (signature verified)"
+            echo "workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } > output/PROVENANCE.txt
+          cat output/PROVENANCE.txt
           find output -type f -printf '%p %s bytes\n'
 
       - name: Show kernel denials (on failure)

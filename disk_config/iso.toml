@@ -18,17 +18,14 @@ rm -f /etc/yum.repos.d/fedora.repo /etc/yum.repos.d/fedora-updates.repo
 # The installed system records "ostree-image-signed:docker://...". Before, it recorded
 # "ostree-unverified-registry:..." until the user ran `ujust nebula-enable-signed-updates`.
 # The policy's global default is "reject" (inherited from Universal Blue), which bootc
-# requires for signature enforcement. If bootc still refuses, follow the image without
-# enforcement (nebula doctor then reports unsigned updates and how to fix it). If even
-# that fails, stop the install with an error: a system that cannot find its updates
-# must not be finished silently (review of d155aea).
+# requires for signature enforcement (proven on an installed VM, 2026-11-23). If bootc still
+# refuses, stop the installation with an error instead of following the image without
+# signature checks: the red team and the security review both showed that an unverified
+# fallback could let an unsigned image become the update source.
 IMAGE_REF="$(cat /usr/share/nebula-os/image-ref)"
 if ! bootc switch --mutate-in-place --enforce-container-sigpolicy --transport registry "$IMAGE_REF"; then
-    echo "NebulaOS: could not turn on signature checking; updates stay unverified until 'ujust nebula-enable-signed-updates'." >&2
-    if ! bootc switch --mutate-in-place --transport registry "$IMAGE_REF"; then
-        echo "NebulaOS: could not set the update source $IMAGE_REF; stopping the installation." >&2
-        exit 1
-    fi
+    echo "NebulaOS: could not set the signature-checked update source $IMAGE_REF; stopping the installation." >&2
+    exit 1
 fi
 # Name the computer. The installer leaves /etc/hostname empty (its Network module
 # is off), and the boot then falls back to the base image's name, "bazzite"

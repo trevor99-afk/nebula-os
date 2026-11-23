@@ -119,6 +119,8 @@ build $target_image=image_name $tag=default_tag:
 
     BUILD_ARGS=()
     BUILD_ARGS+=("--build-arg" "BASE_IMAGE=${base_image}")
+    # The name recorded in the image (CI builds from a pinned digest but records the :stable name).
+    BUILD_ARGS+=("--build-arg" "BASE_IMAGE_NAME=${BASE_IMAGE_NAME:-${base_image}}")
     BUILD_ARGS+=("--build-arg" "BASE_DIGEST=${BASE_DIGEST}")
     BUILD_ARGS+=("--build-arg" "IMAGE_NAME=${name}")
     BUILD_ARGS+=("--build-arg" "IMAGE_PRETTY_NAME=${image_pretty_name}")
@@ -177,7 +179,7 @@ rechunk $target_image=image_name $tag=default_tag:
 
     set -xeuo pipefail
 
-    # TODO: pin chunkah image to hash once mature enough
+    # chunkah is pinned by digest ("latest" as of 2026-11-23); update it deliberately after review.
     # You may run into space issues on github runners as we are making a
     # complete copy of the image, which likely has no shared layers, unless your
     # base image is also using chunkah
@@ -194,7 +196,7 @@ rechunk $target_image=image_name $tag=default_tag:
       --mount=type=image,src="${target_image}:${tag}",target=/chunkah \
       -v "${CHUNKAH_CONFIG_FILE}:/chunkah-config.json:ro,Z" \
       -v "${CHUNKAH_OUTPUT_DIR}:/run/out:Z" \
-      quay.io/coreos/chunkah:latest \
+      quay.io/coreos/chunkah@sha256:71e593421c5de7dcc7c8c5c50e98d3bac572055a76f399f61a491d123c20a523 \
       build \
       --verbose \
       --compressed \
