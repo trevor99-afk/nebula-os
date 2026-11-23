@@ -4,8 +4,9 @@ on:
   pull_request:
     branches:
       - main
+      - dev
   schedule:
-    - cron: '05 10 * * *'  # every day at 10:05 UTC, so the stable channel picks up Bazzite's updates
+    - cron: '05 10 * * *'  # daily rebuild on the pinned base; new Bazzite releases arrive through update-base.yml
   push:
     branches:
       - main  # stable channel (tag: latest)

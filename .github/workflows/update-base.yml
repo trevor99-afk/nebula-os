@@ -3,7 +3,9 @@ name: Update pinned Bazzite base images
 
 # Builds use the reviewed digests in base-images.lock (see build.yml). Once a day this checks
 # whether Bazzite published newer :stable images, verifies their Universal Blue signatures and,
-# if they changed, opens a pull request to dev with the new digests for review.
+# if they changed, opens a pull request to dev with the new digests for review and starts a validation
+# build of that branch. Scheduled workflows run from the default branch: this one starts working once it
+# is on main.
 on:
   schedule:
     - cron: '35 9 * * *'  # 09:35 UTC, before the daily build
@@ -16,6 +18,7 @@ jobs:
   check:
     runs-on: ubuntu-26.04
     permissions:
+      actions: write  # start the validation build (pull requests opened by GITHUB_TOKEN start no workflows)
       contents: write
       pull-requests: write
     steps:
@@ -59,5 +62,8 @@ jobs:
           git checkout -b "$branch"
           git commit -am "Update pinned Bazzite base images (signatures verified)"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
+          # A pull request opened with GITHUB_TOKEN triggers no workflows, so start the full build and
+          # image tests on this branch explicitly (a branch other than main/dev never publishes).
+          gh workflow run build.yml --ref "$branch"
           gh pr create --base dev --head "$branch" --title "Update pinned Bazzite base images" \
-            --body "New Bazzite :stable digests, each verified with Universal Blue's key (keys/ublue-os.pub). Review, then merge to build NebulaOS on them."
+            --body "New Bazzite :stable digests, each verified with Universal Blue's key (keys/ublue-os.pub). A validation build (build + image tests, no publishing) was started on this branch: check it under Actions › Build container image before merging."

@@ -26,7 +26,7 @@ The **Build disk images** workflow boots its qcow2 on an Ubuntu GitHub runner wi
 
 ## Updating the Bazzite base
 
-Builds use the reviewed digests in `base-images.lock`, not Bazzite's moving `:stable` tag. Every day `update-base.yml` resolves the newest `:stable` digests, verifies their Universal Blue signatures and, if they changed, opens a pull request to `dev`. Review it and merge to build NebulaOS on the new base; then promote to stable as usual. The pull request needs the repository setting **Settings › Actions › General › Allow GitHub Actions to create and approve pull requests**. Without it the workflow still verifies the new digests and shows them in its log, so you can update `base-images.lock` by hand.
+Builds use the reviewed digests in `base-images.lock`, not Bazzite's moving `:stable` tag. Every day `update-base.yml` resolves the newest `:stable` digests, verifies their Universal Blue signatures and, if they changed, opens a pull request to `dev`. It also starts a validation build of that branch (build and image tests, never published), because pull requests opened by the workflow token start no checks by themselves. Review it, check the validation build, and merge to build NebulaOS on the new base; then promote to stable as usual. Scheduled workflows run from the default branch, so the daily check starts once `update-base.yml` is on `main`. The pull request needs the repository setting **Settings › Actions › General › Allow GitHub Actions to create and approve pull requests**. Without it the workflow still verifies the new digests and shows them in its log, so you can update `base-images.lock` by hand.
 
 ## Promoting testing to stable
 
