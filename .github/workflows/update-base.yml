@@ -37,6 +37,9 @@ jobs:
         id: resolve
         run: |
           changed=false
+          # Read a copy: the loop edits base-images.lock itself.
+          orig=$(mktemp)
+          cp base-images.lock "$orig"
           while read -r line; do
             [[ "$line" =~ ^([^#@][^@]*)@(sha256:[0-9a-f]{64})$ ]] || continue
             repo="${BASH_REMATCH[1]}"; old="${BASH_REMATCH[2]}"
@@ -48,7 +51,8 @@ jobs:
               sed -i "s|^${repo}@${old}\$|${repo}@${new}|" base-images.lock
               changed=true
             fi
-          done < base-images.lock
+          done < "$orig"
+          rm -f "$orig"
           echo "changed=${changed}" >> "${GITHUB_OUTPUT}"
 
       - name: Open a pull request with the new digests
