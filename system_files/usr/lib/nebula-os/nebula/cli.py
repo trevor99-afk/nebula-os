@@ -18,6 +18,7 @@ from typing import Dict, List, Optional
 
 from . import __version__, doctor, gpu as gpu_mod, hardware, sysinfo, updates
 from .util import human_bytes, human_duration, run
+from .work import cli as work_cli
 
 _STYLE = {"ok": ("✔", "32"), "info": ("ℹ", "36"), "warn": ("⚠", "33"), "fail": ("✖", "31"), "skip": ("–", "90")}
 _SHORT_LABELS = {"vulkan": "Vulkan", "opengl": "OpenGL", "vaapi": "Video accel.", "gpu-power": "Power mgmt",
@@ -261,6 +262,7 @@ def build_parser() -> argparse.ArgumentParser:
     apply_p.add_argument("--yes", action="store_true", help="do not ask for confirmation")
     rb = upd_sub.add_parser("rollback", help="boot the previous deployment next time (asks first)")
     rb.add_argument("--yes", action="store_true", help="do not ask for confirmation")
+    work_cli.add_parser(sub, common)
     return parser
 
 
@@ -315,6 +317,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             return updates.apply(assume_yes=args.yes)
         if args.action == "rollback":
             return updates.rollback(info, assume_yes=args.yes)
+    if args.command == "work":
+        return work_cli.run(args)
     return 2
 
 
