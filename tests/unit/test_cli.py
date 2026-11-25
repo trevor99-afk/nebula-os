@@ -73,6 +73,19 @@ class WriteReport(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("Could not write the report", err.getvalue())
 
+    def test_json_with_report_keeps_stdout_machine_readable(self):
+        path = self.tmp / "r.json"
+        output = StringIO()
+        with mock.patch.object(cli.doctor, "diagnose", return_value=[]), \
+                mock.patch.object(cli, "run", return_value=helpers.CommandResult(0, "synthetic log line\n", "")), \
+                redirect_stdout(output):
+            code = cli.main(["doctor", "--json", "--report", str(path), "--include-logs"])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(output.getvalue())["schema"], "nebula.doctor/v1")
+        report = json.loads(path.read_text())
+        self.assertEqual(report["schema"], "nebula.doctor-report/v1")
+        self.assertEqual(report["error_log"], ["synthetic log line"])
+
 
 if __name__ == "__main__":
     unittest.main()

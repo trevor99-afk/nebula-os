@@ -1,0 +1,262 @@
+#!/usr/bin/python3 -I
+"""NebulaOS full-screen mode chooser, shown after login by the "NebulaOS" session.
+
+Run by /usr/libexec/nebula-os-start inside the cage kiosk compositor. Works with
+a mouse, a keyboard (arrow keys, Enter) or a game controller (D-pad or left
+stick, A to start). Writes the choice to the --result file:
+  gaming | work | logout | reboot | poweroff
+
+Usage: nebula-os-chooser --result FILE [--message TEXT]
+"""
+import argparse
+import os
+import pwd
+import select
+import sys
+import threading
+import time
+
+sys.path.insert(0, "/usr/lib/nebula-os")
+
+from nebula import modes  # noqa: E402
+
+import gi  # noqa: E402
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw, GLib, Gtk  # noqa: E402
+
+CSS = """
+window.nebula-chooser {
+  background: radial-gradient(ellipse at 30% 20%, #3b1f5c 0%, #1a1030 45%, #0b0716 100%);
+  color: #f2ecff;
+}
+.nebula-title { font-size: 28pt; font-weight: 800; }
+.nebula-subtitle { font-size: 13pt; opacity: 0.8; }
+.nebula-message { font-size: 13pt; color: #ffd27f; }
+button.mode-card {
+  min-width: 340px; min-height: 250px; border-radius: 28px; padding: 22px;
+  background: alpha(#ffffff, 0.06); border: 2px solid alpha(#ffffff, 0.10);
+  transition: all 150ms ease-out;
+}
+button.mode-card:hover { background: alpha(#ffffff, 0.10); }
+button.mode-card:focus-visible, button.mode-card:focus {
+  background: alpha(#a78bfa, 0.25); border-color: #a78bfa; outline: none;
+  box-shadow: 0 0 40px alpha(#a78bfa, 0.45);
+}
+.mode-name { font-size: 22pt; font-weight: 800; }
+.mode-desc { font-size: 12pt; opacity: 0.85; }
+.mode-warning { font-size: 11pt; color: #ffd27f; }
+.mode-badge { font-size: 10pt; font-weight: 700; color: #22d3ee; letter-spacing: 1px; }
+.nebula-hint { font-size: 11pt; opacity: 0.6; }
+button.power { border-radius: 999px; padding: 8px 18px; background: alpha(#ffffff, 0.06); }
+button.power:focus-visible, button.power:focus { background: alpha(#a78bfa, 0.30); }
+"""
+
+
+class Gamepads(threading.Thread):
+    """Reads game controllers with evdev and turns them into chooser actions."""
+
+    def __init__(self, on_move, on_activate):
+        super().__init__(daemon=True)
+        self.on_move, self.on_activate = on_move, on_activate
+        self.devices = {}
+        self.stick_side = {}
+
+    def _scan(self, evdev):
+        for path in evdev.list_devices():
+            if path in self.devices:
+                continue
+            try:
+                dev = evdev.InputDevice(path)
+                keys = dev.capabilities().get(evdev.ecodes.EV_KEY, [])
+                if evdev.ecodes.BTN_SOUTH in keys or evdev.ecodes.BTN_GAMEPAD in keys:
+                    self.devices[path] = dev
+                else:
+                    dev.close()
+            except OSError:
+                continue
+
+    def run(self):
+        try:
+            import evdev
+        except ImportError:
+            return  # no controller support; keyboard and mouse still work
+        ec = evdev.ecodes
+        last_scan = 0.0
+        while True:
+            if time.monotonic() - last_scan > 2:
+                self._scan(evdev)
+                last_scan = time.monotonic()
+            if not self.devices:
+                time.sleep(0.5)
+                continue
+            fds = {dev.fd: (path, dev) for path, dev in self.devices.items()}
+            ready, _, _ = select.select(list(fds), [], [], 0.5)
+            for fd in ready:
+                path, dev = fds[fd]
+                try:
+                    events = list(dev.read())
+                except OSError:
+                    self.devices.pop(path, None)
+                    continue
+                for e in events:
+                    self._handle(dev, e, ec)
+
+    def _handle(self, dev, e, ec):
+        DPAD = {ec.BTN_DPAD_LEFT: (-1, 0), ec.BTN_DPAD_RIGHT: (1, 0), ec.BTN_DPAD_UP: (0, -1), ec.BTN_DPAD_DOWN: (0, 1)}
+        if e.type == ec.EV_KEY and e.value == 1:
+            if e.code in (ec.BTN_SOUTH, ec.BTN_START):
+                GLib.idle_add(self.on_activate)
+            elif e.code in DPAD:
+                GLib.idle_add(self.on_move, *DPAD[e.code])
+        elif e.type == ec.EV_ABS and e.code in (ec.ABS_HAT0X, ec.ABS_HAT0Y, ec.ABS_X, ec.ABS_Y):
+            if e.code in (ec.ABS_HAT0X, ec.ABS_HAT0Y):
+                side = e.value  # -1, 0, 1
+            else:
+                info = dev.absinfo(e.code)
+                mid = (info.max + info.min) / 2
+                half = max((info.max - info.min) / 2, 1)
+                pos = (e.value - mid) / half
+                side = -1 if pos < -0.6 else 1 if pos > 0.6 else 0
+            key = (dev.path, e.code)
+            if side != self.stick_side.get(key, 0) and side != 0:
+                vertical = e.code in (ec.ABS_HAT0Y, ec.ABS_Y)
+                GLib.idle_add(self.on_move, 0 if vertical else side, side if vertical else 0)
+            self.stick_side[key] = side
+
+
+class Chooser(Adw.Application):
+    def __init__(self, result_path, message):
+        super().__init__(application_id="io.github.nebulaos.Chooser")
+        self.result_path, self.message = result_path, message
+        self.cards = []
+        self.power_buttons = []
+        self.done = False
+
+    def finish(self, choice):
+        if self.done:
+            return
+        self.done = True
+        if choice in modes.MODES:
+            try:
+                modes.save_last_mode(choice)
+            except (OSError, ValueError) as exc:
+                print(f"nebula-os-chooser: could not remember the choice: {exc}", file=sys.stderr)
+        with open(self.result_path, "w", encoding="utf-8") as fh:
+            fh.write(choice + "\n")
+        self.quit()
+
+    def move(self, dx, dy=0):
+        """Move the highlight: left/right within a row, down to the power buttons, up to the modes."""
+        focus = self.window.get_focus()
+        row = self.power_buttons if focus in self.power_buttons else self.cards
+        if dy > 0:
+            row = self.power_buttons
+        elif dy < 0:
+            row = self.cards
+        idx = row.index(focus) if focus in row else (len(row) - 1 if row is self.cards and dy < 0 else 0)
+        row[max(0, min(len(row) - 1, idx + dx))].grab_focus()
+        return False
+
+    def activate_focused(self):
+        focus = self.window.get_focus()
+        if isinstance(focus, Gtk.Button):
+            focus.emit("clicked")
+        return False
+
+    def card(self, mode, icon, name, desc, warning=None, badge=None):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, valign=Gtk.Align.CENTER)
+        badge_label = Gtk.Label(label=badge or " ", css_classes=["mode-badge"])
+        box.append(badge_label)
+        image = Gtk.Image(icon_name=icon, pixel_size=96)
+        box.append(image)
+        box.append(Gtk.Label(label=name, css_classes=["mode-name"]))
+        box.append(Gtk.Label(label=desc, css_classes=["mode-desc"], wrap=True, justify=Gtk.Justification.CENTER,
+                             max_width_chars=34))
+        if warning:
+            box.append(Gtk.Label(label=warning, css_classes=["mode-warning"], wrap=True,
+                                 justify=Gtk.Justification.CENTER, max_width_chars=38))
+        button = Gtk.Button(child=box, css_classes=["mode-card"])
+        button.connect("clicked", lambda _b: self.finish(mode))
+        self.cards.append(button)
+        return button
+
+    def do_activate(self):
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+        provider = Gtk.CssProvider()
+        provider.load_from_string(CSS)
+        Gtk.StyleContext.add_provider_for_display(self.window_display(), provider,
+                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        self.window = Gtk.ApplicationWindow(application=self, title="NebulaOS", css_classes=["nebula-chooser"])
+
+        try:
+            entry = pwd.getpwuid(os.getuid())
+            name = (entry.pw_gecos.split(",")[0] or entry.pw_name).strip()
+        except KeyError:
+            name = ""
+        last = modes.last_mode()
+        supported, reason = modes.gaming_support()
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18, halign=Gtk.Align.CENTER,
+                        valign=Gtk.Align.CENTER, margin_top=24, margin_bottom=24)
+        outer.append(Gtk.Image(icon_name="nebula-os-logo", pixel_size=72))
+        outer.append(Gtk.Label(label=f"Welcome, {name}" if name else "Welcome", css_classes=["nebula-title"]))
+        outer.append(Gtk.Label(label="What would you like to do?", css_classes=["nebula-subtitle"]))
+        if self.message:
+            outer.append(Gtk.Label(label=self.message, css_classes=["nebula-message"], wrap=True,
+                                   max_width_chars=70, justify=Gtk.Justification.CENTER))
+
+        row = Gtk.Box(spacing=36, halign=Gtk.Align.CENTER, margin_top=12)
+        gaming = self.card("gaming", "steam", "Gaming Mode",
+                           "Steam in full screen, made for controllers and the TV.",
+                           warning=None if supported else reason,
+                           badge="LAST USED" if last == "gaming" else None)
+        work = self.card("work", "computer-symbolic", "Work Mode",
+                         "The desktop with your apps, browser and developer tools.",
+                         badge="LAST USED" if last == "work" else None)
+        row.append(gaming)
+        row.append(work)
+        outer.append(row)
+
+        power = Gtk.Box(spacing=12, halign=Gtk.Align.CENTER, margin_top=18)
+        for label, icon, choice in (("Log out", "system-log-out-symbolic", "logout"),
+                                    ("Restart", "system-reboot-symbolic", "reboot"),
+                                    ("Power off", "system-shutdown-symbolic", "poweroff")):
+            content = Adw.ButtonContent(icon_name=icon, label=label)
+            button = Gtk.Button(child=content, css_classes=["power"])
+            button.connect("clicked", lambda _b, c=choice: self.finish(c))
+            self.power_buttons.append(button)
+            power.append(button)
+        outer.append(power)
+        outer.append(Gtk.Label(label="Arrow keys or D-pad to choose  ·  Enter or A to start",
+                               css_classes=["nebula-hint"]))
+
+        # Small screens (720p TVs, handhelds): scroll; the highlighted item stays in view.
+        scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=False)
+        scroller.set_child(outer)
+        self.window.set_child(scroller)
+        self.window.fullscreen()
+        self.window.present()
+        # Highlight the last mode; without one, Work Mode (it always starts).
+        (gaming if last == "gaming" else work).grab_focus()
+
+        Gamepads(self.move, self.activate_focused).start()
+
+    @staticmethod
+    def window_display():
+        from gi.repository import Gdk
+        return Gdk.Display.get_default()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="NebulaOS full-screen mode chooser")
+    parser.add_argument("--result", required=True, help="file that receives the choice")
+    parser.add_argument("--message", default="", help="note shown above the choices")
+    args = parser.parse_args()
+    app = Chooser(args.result, args.message)
+    return app.run([sys.argv[0]])
+
+
+if __name__ == "__main__":
+    sys.exit(main())

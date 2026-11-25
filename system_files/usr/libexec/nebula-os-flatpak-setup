@@ -42,6 +42,17 @@ if ! flatpak remotes --system --columns=name | grep -qx flathub; then
 fi
 flatpak remote-modify --system --enable flathub || true
 
+# Install only from the real Flathub: a remote merely named "flathub" could point elsewhere
+# (red-team hypothesis R04). Its URL must be Flathub's.
+flathub_url=$(flatpak remotes --system --columns=name,url | awk '$1 == "flathub" {print $2; exit}')
+case "${flathub_url%/}" in
+    https://dl.flathub.org/repo) ;;
+    *)
+        echo "The system remote \"flathub\" points to '${flathub_url}', not https://dl.flathub.org/repo/; not installing anything." >&2
+        exit 1
+        ;;
+esac
+
 failed=0
 while IFS= read -r line || [[ -n "$line" ]]; do
     app="${line%%#*}"          # drop comments

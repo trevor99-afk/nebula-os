@@ -44,6 +44,23 @@ set_os_release BOOTLOADER_NAME "$bootloader_name"
 set_os_release IMAGE_ID "$IMAGE_NAME"
 set_os_release DEFAULT_HOSTNAME "$IMAGE_NAME"
 set_os_release LOGO "nebula-os-logo"
+
+# Login screen logo: a "NebulaOS" wordmark in place of Bazzite's (GDM shows it at the
+# bottom). It is only switched on if it could be drawn, so GDM never points at a
+# missing file. (The boot splash is part of the initramfs and is not changed.)
+GDM_LOGO=/usr/share/pixmaps/nebula-os-gdm-logo.png
+font=$(fc-match -f '%{file}' 'Noto Sans:bold' 2>/dev/null || true)
+work=$(mktemp -d)
+if [[ -n "$font" ]] &&
+    magick -background none -density 300 /usr/share/icons/hicolor/scalable/apps/nebula-os-logo.svg -resize 43x43 "$work/icon.png" &&
+    magick -background none -fill white -font "$font" -pointsize 30 label:"$IMAGE_PRETTY_NAME" "$work/text.png" &&
+    magick "$work/icon.png" "$work/text.png" -background none -gravity center +smush 10 +repage -depth 8 "$GDM_LOGO"; then
+    printf "[org/gnome/login-screen]\nlogo='%s'\n" "$GDM_LOGO" >/etc/dconf/db/gdm.d/11-nebula-os-logo
+    echo "--- Login screen logo: $GDM_LOGO"
+else
+    echo "Note: could not draw the login screen logo; keeping the base image's." >&2
+fi
+rm -rf "$work"
 set_os_release ANSI_COLOR "0;38;2;167;139;250"
 set_os_release HOME_URL "$REPO_URL"
 set_os_release SUPPORT_URL "$REPO_URL/issues"
@@ -58,6 +75,14 @@ if [[ -f "$MOTD" ]] && grep -q '^# Welcome to Bazzite' "$MOTD"; then
     # The backticks are literal Markdown, not command substitution.
     # shellcheck disable=SC2016
     sed -i '/^| `ujust --choose`/a | `ujust nebula-info` | NebulaOS version, apps and tools |' "$MOTD"
+    # The image line read Bazzite's image-info.json ("ghcr.io/ublue-os/bazzite-dx-gnome:stable",
+    # seen in a VM install), which stays Bazzite's on purpose (see the note at the top).
+    # Show where this system gets its updates instead.
+    image_sed=$(printf '%s' "${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" | sed 's/[&|\\]/\\&/g')
+    sed -i "s|\`\${MOTD_IMAGE_NAME}:\${MOTD_IMAGE_BRANCH}\`|\`${image_sed}\`|" "$MOTD"
+    # NebulaOS problems go to NebulaOS, not to Bazzite's tracker.
+    repo_sed=$(printf '%s' "$REPO_URL" | sed 's/[&|\\]/\\&/g')
+    sed -i "s|\[Report an issue\](https://issues.bazzite.gg/)|[Report an issue](${repo_sed}/issues)|" "$MOTD"
 else
     echo "Note: Bazzite's MOTD template changed; skipping welcome-message branding."
 fi
@@ -68,14 +93,17 @@ set_os_release IMAGE_VERSION "${IMAGE_VERSION:-${IMAGE_TAG}.local}"
 # installer (disk_config/iso.toml), `nebula status` and the `ujust nebula-*` commands.
 install -d /usr/share/nebula-os
 echo "${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" >/usr/share/nebula-os/image-ref
-echo "${BASE_IMAGE}" >/usr/share/nebula-os/base-image
+# Record the base by name (e.g. ...:stable), not by the pinned digest CI builds from, so that
+# `ujust nebula-switch-to-bazzite` returns to an updating Bazzite.
+BASE_NAME="${BASE_IMAGE_NAME:-$BASE_IMAGE}"
+echo "${BASE_NAME}" >/usr/share/nebula-os/base-image
 jq -n \
     --arg name "$IMAGE_NAME" \
     --arg pretty "$IMAGE_PRETTY_NAME" \
     --arg channel "$IMAGE_TAG" \
     --arg version "${IMAGE_VERSION:-${IMAGE_TAG}.local}" \
     --arg git_sha "${GIT_SHA:-}" \
-    --arg base_image "$BASE_IMAGE" \
+    --arg base_image "$BASE_NAME" \
     --arg base_digest "${BASE_DIGEST:-}" \
     --arg built "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{name: $name, pretty_name: $pretty, channel: $channel, version: $version, git_sha: $git_sha,

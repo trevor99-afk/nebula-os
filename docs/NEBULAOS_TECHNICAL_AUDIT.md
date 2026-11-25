@@ -6,7 +6,7 @@ Date: 2026-11-21 · Scope: the `nebula-os` repository at commit `aaf9cf6` (branc
 
 - Four independent read-only reviews, each with one lens: build and CI/supply chain, runtime integration with the Bazzite ecosystem, security and privacy, and product gaps against the NebulaOS master plan.
 - Every finding needed evidence: a file and line, a command and its output, or a quoted upstream source. Before any fix, findings were re-checked by hand against the built image (`podman run localhost/nebula-os:latest …`) and against the machine the project is developed on (Bazzite GNOME, Lenovo Legion 5 15ACH6A, Ryzen 7 5800H with Radeon Vega iGPU and RX 6600M).
-- Not verifiable in this environment, so not claimed: booting the image, Steam Gaming Mode on real hardware, switching modes in a live session, and an ISO installation. These are listed under [Unverified](#unverified-needs-a-real-boot).
+- At the time of this audit (2026-11-21), booting a NebulaOS image, Steam Gaming Mode on real hardware, switching modes in a live session, and ISO installation were not verified. A later VM install on 2026-11-22 is recorded below; the CI qcow2 check only reaches GDM. Neither establishes real-hardware support or an interactive session switch.
 
 ## Summary
 
@@ -46,7 +46,7 @@ This change fixes every verified defect below, adds the test and security gates 
 | R2 | All tags were pushed before signing, and `cancel-in-progress` could cancel a run between push and sign. Users with signature enforcement would then get an unsigned `latest`. | Dated and commit tags are pushed first, then the image is signed, the signature is verified, and only then is the channel tag moved. Only pull request runs can be cancelled. |
 | R3 | Over-broad permissions: `id-token: write` was granted but key-based signing never uses it. | Removed. The workflow default is `contents: read`, and only the build job gets `packages: write`. |
 | R4 | No traceability: the floating `:stable` base left no record of which base digest went into an image. | The build records `org.opencontainers.image.base.name` and `base.digest` labels plus `/usr/share/nebula-os/build-info.json`, which `nebula status` shows. |
-| R5 | Every build added 5 tags, with no release channels. | Each build now adds 3 tags: `<channel>`, `<channel>-<date>` and `<channel>-<commit>`. Branch `main` publishes the stable channel (`latest`) and `dev` publishes `testing`. |
+| R5 | Every build added 5 tags, with no release channels. | Each build now adds 3 tags: `<channel>`, `<channel>-<date>` and `<channel>-<date>-<commit>`. Branch `main` publishes the stable channel (`latest`) and `dev` publishes `testing`. |
 | R6 | No vulnerability scanning or SBOM. | A weekly Trivy scan reports to the Security tab, and a CycloneDX SBOM is kept as an artifact. This is report-only, because most findings come from the Fedora and Bazzite base. |
 | R7 | The app installer service ran as root without hardening, and also updated apps, which is the job of Bazzite's updater. | Added `NoNewPrivileges`, `PrivateTmp` and kernel and cgroup protection. The installer now only installs apps. |
 
@@ -57,7 +57,7 @@ This change fixes every verified defect below, adds the test and security gates 
 | The first `bootc switch` to NebulaOS is unverified, because the host does not trust the NebulaOS key yet. | This is inherent to switching from another image. | [INSTALLATION.md](INSTALLATION.md) now verifies the signature with `cosign verify` *before* switching. After the switch, `ujust nebula-enable-signed-updates` turns enforcement on. |
 | `cosign.key` is passwordless and was stored unencrypted in the project folder. | CI needs it as a secret. | Move the local copy to a password manager or offline backup and delete it from disk. See [SECURITY.md](../SECURITY.md). A backup key (`keyPaths`) would make rotation easier. |
 | The bootc-image-builder image and the base use floating tags. | Following Bazzite daily is intended. | The base digest is now recorded in every image. Pinning the builder image is a Phase 6 task. |
-| ISO installation and VM boot are untested. | This needs root or a VM with installation rights. | They are documented as experimental. VM boot tests are on the roadmap (Phase 6). |
+| ISO installation on hardware and the full first-login journey remain unverified. | Installation requires a disposable VM or test machine. | VM installation on 2026-11-22 confirmed the ISO boots with UEFI, installs, and creates the user account. The disk-image workflow's qcow2 check only confirms that OCR sees the GDM “Choose Gaming Mode” text; it does not log in. Real hardware and interactive mode switching are still untested. |
 | Dual-GPU laptops can show a black screen in Steam Gaming Mode (a known gamescope limitation, improved by CardWire in Bazzite 44). | Upstream. | Work Mode is always available at the login screen. `nebula hw` reports hybrid setups. |
 | `ujust restore-gnome-de-settings` (Bazzite) resets the dock and wallpaper to Bazzite's values. | It is a Bazzite recipe. | Documented in [TROUBLESHOOTING.md](TROUBLESHOOTING.md). |
 
@@ -68,7 +68,7 @@ The rule for NebulaOS: **reuse what Bazzite and Universal Blue already do well, 
 | Component (provider) | What it does | NebulaOS decision |
 | --- | --- | --- |
 | Bazaar (Bazzite) | Flatpak app store with curated rows | **Inherit.** No NebulaOS store. Add curated rows (Development & Work) and link to it from NebulaOS tools. |
-| Bazzite Portal / yafti (Bazzite) | Setup wizard and tailored software installation | **Inherit.** Kept in the dock; future profiles (Creative, Dev, AI) should be offered through it or through Bazaar rows. |
+| Bazzite Portal / yafti (Bazzite) | Setup wizard and tailored software installation | **Inherit.** Kept in the dock; future profiles (Creative, Dev) should be offered through it or through Bazaar rows. |
 | ujust recipe catalogue (Universal Blue) | Gaming and system fixes, ProtonPlus, Decky, frame generation, device info, logs | **Inherit.** NebulaOS tools call these recipes instead of duplicating them. |
 | uupd (Universal Blue) | Unified updates for the OS, Flatpaks, Homebrew and distrobox | **Inherit.** `nebula update` only reports status and wraps rpm-ostree for explicit actions. There is no second update daemon. |
 | Steam and gamescope sessions (Bazzite) | Gaming Mode | **Inherit.** NebulaOS only names the sessions and hooks `/usr/lib/os-session-select`. |
@@ -78,9 +78,9 @@ The rule for NebulaOS: **reuse what Bazzite and Universal Blue already do well, 
 | MangoHud and vkBasalt (Bazzite) | Overlay and post-processing | **Inherit.** NebulaOS writes configs and profiles (`nebula-fps-overlay`), never another overlay. |
 | tuned / tuned-ppd, scx_loader (Bazzite) | Power profiles and CPU schedulers | **Inherit.** The future Gaming Optimizer switches profiles through their D-Bus APIs. |
 | Distrobox, Podman, Docker, BoxBuddy, Podman Desktop, virt-manager (Bazzite DX) | Containers, dev environments, VMs | **Inherit.** The future Dev Hub orchestrates them with templates. |
-| ramalama, Alpaca, ROCm userland (Bazzite DX) | Local AI | **Inherit.** The future AI Hub orchestrates them. |
+| ramalama, `ujust install-ai-tools`, LM Studio in Bazzite Portal (Bazzite DX) | Local AI | **Removed.** NebulaOS ships no AI tools (`build_files/25-no-ai.sh`). ROCm stays as general GPU compute, and onnxruntime because FFmpeg needs it. |
 | **Status, monitoring, hardware detection, System Doctor** | Not available as one tool | **Original:** the `nebula` backend (this change). |
-| **Control Center, Gaming Optimizer, Display Lab, Dev Hub, AI Hub** | Not available | **Original:** planned, see [ROADMAP.md](ROADMAP.md). |
+| **Control Center, Gaming Optimizer, Display Lab, Dev Hub** | Not available | **Original:** planned, see [ROADMAP.md](ROADMAP.md). |
 
 ## 6. Requirements status
 
@@ -93,9 +93,9 @@ The rule for NebulaOS: **reuse what Bazzite and Universal Blue already do well, 
 | Unified monitoring data | **Done (CLI v1):** `nebula status` and `--json` for future front ends |
 | Updates: check, history, apply, rollback with confirmation | **Done (CLI v1):** `nebula update …`. uupd stays the updater. |
 | Stable and testing channels | **Done:** `main` publishes `latest`, `dev` publishes `testing` |
-| CI: lint, tests, image tests, signing verification, security scan | **Done.** VM boot tests are still missing. |
+| CI: lint, tests, image tests, signing verification, security scan | **Done.** A boot test (the qcow2 in QEMU, until the login screen appears) runs in the disk-image workflow; logging in and switching modes are not covered by CI yet. |
 | NVIDIA edition | **Builds in CI** (`nebula-os-nvidia`). Untested on NVIDIA hardware. |
-| Control Center GUI, Gaming Optimizer, Display Lab, Visual Quality Engine, Benchmark, Dev Hub, AI Hub, Creative profiles, GTK, icon and cursor themes, boot branding | **Planned:** [ROADMAP.md](ROADMAP.md) |
+| Control Center GUI, Gaming Optimizer, Display Lab, Visual Quality Engine, Benchmark, Dev Hub, Creative profiles, GTK, icon and cursor themes, boot branding | **Planned:** [ROADMAP.md](ROADMAP.md) |
 | Own app store | **Dropped** as a duplicate of Bazaar |
 | Performance comparison with Bazzite | **Planned.** Needs real hardware runs. |
 
@@ -124,6 +124,6 @@ These are implemented but have not been exercised on a booted NebulaOS system:
 3. The `steamosctl` shim makes Bazzite's own buttons and recipes work.
 4. The app bundle service with the new hardening installs apps on first boot.
 5. `nebula-enable-signed-updates` followed by a signed upgrade.
-6. The ISO installer.
+6. ISO installation on real hardware (VM installation was tested on 2026-11-22).
 
 The reference machine runs stock Bazzite, so `nebula status`, `nebula hw`, `nebula doctor` and `nebula update check` were run there and their output checked by hand. That covers the backend, but not the image.

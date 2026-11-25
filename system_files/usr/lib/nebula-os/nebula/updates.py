@@ -119,6 +119,8 @@ def check_remote(info: Optional[Dict[str, object]], runner: Runner = run) -> Dic
     if not res.ok:
         return {"state": "error", "image": image, "message": (res.stderr or "skopeo failed").strip()[:300]}
     remote = res.stdout.strip()
+    if not remote:
+        return {"state": "error", "image": image, "message": "skopeo returned no image digest."}
     staged = _pick(deps, staged=True)
     if remote == booted.get("digest"):
         state, message = "up-to-date", "You are running the newest image."

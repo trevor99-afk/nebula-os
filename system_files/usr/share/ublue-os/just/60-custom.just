@@ -30,7 +30,7 @@ nebula-doctor:
 nebula-hw:
     nebula hw
 
-# Choose the mode started at login: gaming | work | status (add "now" to switch right away)
+# Choose the mode started at login: gaming | work | chooser | chooser-off | status (add "now" to switch right away)
 [group("NebulaOS")]
 nebula-mode MODE="" NOW="":
     #!/usr/bin/bash
@@ -39,12 +39,16 @@ nebula-mode MODE="" NOW="":
     MODE="{{ MODE }}"
     if [[ -z "$MODE" ]]; then
         echo "Mode selected at login: $(/usr/libexec/nebula-os-switch-side status || echo unknown)"
-        MODE=$(Choose gaming work)
+        MODE=$(Choose gaming work chooser chooser-off)
     fi
-    if [[ "$MODE" == "status" ]]; then
-        echo "Mode selected at login: $(/usr/libexec/nebula-os-switch-side status || echo unknown)"
-        exit 0
-    fi
+    case "$MODE" in
+        status)
+            echo "Mode selected at login: $(/usr/libexec/nebula-os-switch-side status || echo unknown)"
+            exit 0
+            ;;
+        chooser) exec /usr/libexec/nebula-os-switch-side chooser on ;;
+        chooser-off) exec /usr/libexec/nebula-os-switch-side chooser off ;;
+    esac
     if [[ "{{ NOW }}" == "now" ]]; then
         /usr/libexec/nebula-os-switch-side "$MODE" --now
     else

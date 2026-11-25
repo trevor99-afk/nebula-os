@@ -7,6 +7,17 @@
 # Bazzite already ships Steam, Lutris and Protontricks; ProtonPlus and more are one click
 # away in Bazzite Portal. Apps a user installed per-user are not installed twice.
 
+# Everyday apps. Bazzite's own installer adds these from the ISO; the NebulaOS
+# installer does not, so without them a fresh install has no web browser
+# (found in a GNOME Boxes install, 2026-11-22). Listed first so they arrive first.
+org.mozilla.firefox             # Firefox: web browser (pinned in the dock)
+org.gnome.TextEditor            # Text Editor
+org.gnome.Calculator            # Calculator
+org.gnome.Loupe                 # Image Viewer
+org.gnome.Papers                # Document Viewer (PDF)
+com.github.tchx84.Flatseal      # Flatseal: app permissions
+com.mattjakeman.ExtensionManager  # Extension Manager: GNOME extensions
+
 # Game launchers
 com.heroicgameslauncher.hgl     # Heroic Games Launcher: Epic, GOG and Amazon games
 com.usebottles.bottles          # Bottles: run Windows apps and games

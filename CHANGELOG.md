@@ -2,6 +2,46 @@
 
 All notable changes to NebulaOS. Channels: `testing` (branch `dev`) and stable `latest` (branch `main`).
 
+## Unreleased
+
+### Security
+Fixes from the red-team exercise (10 attackers) and the full security review, each with a regression check:
+- **Installer: no unverified fallback.** If signature checking cannot be turned on, the installation now stops with an error instead of following the image without checks.
+- **Pinned, verified Bazzite base.** Builds use the reviewed digests in `base-images.lock` after verifying Universal Blue's signature; a daily workflow proposes verified updates.
+- **Pinned builders.** `bootc-image-builder` (runs privileged) and `chunkah` are pinned by digest. Disk images are built only from a signature-verified NebulaOS image and ship `PROVENANCE.txt`.
+- **State files:** the chooser and `nebula-os-switch-side` wrote through predictable `*.tmp` names, so a planted symlink could redirect the write; they now use exclusive random temporary files.
+- **App installer:** installs only when the `flathub` remote really points to Flathub.
+- Documented accepted risks: the root-equivalent `docker` group, the desktop firewall zone, and broad Flathub app permissions (SECURITY.md).
+
+### Fixed
+- **No hidden telemetry:** Fedora's `rpm-ostree-countme` timer (an anonymous weekly usage ping to Fedora) is now disabled, and a preset keeps it off. It also failed on image-based systems (found in the 12-hour VM stability run). An image test checks it.
+- **Installs from the ISO did not check update signatures** until the user ran `ujust nebula-enable-signed-updates` (found in the repository audit). The installer now records the image as `ostree-image-signed:`, so every update must carry a valid signature for the NebulaOS key; if bootc refuses, the install still completes and `nebula doctor` reports unsigned updates. The published `:testing` image's signature was verified with `cosign verify`; a fresh install with this setting has not been tested yet.
+- **A fresh install from the ISO had no web browser** (and no text editor, calculator, image or PDF viewer), although Firefox was pinned in the dock: Bazzite's own installer adds these apps, ours did not. They are now the first apps of the first-boot app bundle, and an image test checks that every dock app is shipped or in the bundle. (Found in a GNOME Boxes install.)
+- The installed computer was named "bazzite"; the installer now names it after the edition (`nebula-os`, `nebula-os-nvidia`).
+- The terminal welcome message showed Bazzite's image name and sent "Report an issue" to Bazzite's tracker. It now shows the NebulaOS image and links to NebulaOS issues.
+- `nebula doctor` said the app bundle was "maybe removed on purpose" while the first-boot installer was still downloading it. It now says the bundle is being installed.
+- CI boot test: the runner user could not open `/dev/kvm`, so the test stopped before booting.
+- **The installer ISO created no user account**, so the installed system could not be logged in to (found by installing it in a VM). Bazzite has no GNOME first-boot setup; the installer now creates the account and sets the time zone, and a config check stops the build if that is ever turned off.
+- The login screen showed Bazzite's logo; it now shows the NebulaOS wordmark. (The boot splash still shows Bazzite's logo: it lives in the initramfs.)
+- `nebula status`, `nebula hw` and `nebula doctor` woke a laptop's sleeping dedicated GPU every time (measured: 0.7 to 1.3 s per run on a Legion 5). GPU names now come from the PCI ID database instead of `lspci`, which reads every device's configuration space.
+- `ujust nebula-mode work now` from a text console (Ctrl+Alt+F3) closed the console instead of a stuck Gaming Mode session. It now closes the graphical session.
+- On AMD APUs, the integrated GPU's "power" was the power of the whole processor. It is now reported as `package_power_w`.
+- A GPU drawing 0 W was reported as unknown. Two identical GPUs shared one Vulkan result. On Ryzen CPUs with a temperature offset, the CPU temperature read high (Tctl instead of Tdie). The total network rate counted container and VM traffic several times.
+- The installer ISO and VM image builds failed: the builder could not see Fedora's repositories (dnf5 keeps them in `/usr/share/dnf5/repos.d`), and Ubuntu's AppArmor blocked its sandbox.
+
+### Changed
+- Installing: the ISO is now the main way to install NebulaOS (one step, Bazzite included). Switching from Bazzite verifies the image digest and switches to that same digest.
+- Commit tags carry the date (`<channel>-<date>-<commit>`), so a daily rebuild of the same commit no longer replaces an earlier build's tag.
+- CI: checkouts keep no git credentials, and pull requests skip rechunking (a privileged step only published images need).
+- `nebula-os-switch-side status` reports an unknown saved session as an error instead of Work Mode.
+
+### Added
+- **Full-screen mode chooser after login** (the new default session "NebulaOS"): two large choices, Gaming Mode and Work Mode, for mouse, keyboard or controller, plus Log out, Restart and Power off. Switching from inside a mode starts the other mode without the login screen; a Gaming Mode that cannot start returns to the chooser with a message; if the chooser cannot run, Work Mode starts. New users get it by default; `ujust nebula-mode chooser` / `chooser-off` turn it on or off. Tested in a GNOME Boxes VM: the chooser after login, a failed Gaming Mode start returning to it, and Work Mode starting afterwards. Not yet tested: switching from Work Mode to a working Gaming Mode and back on real hardware.
+- [Backend and Gaming Mode audit](docs/BACKEND_GAMING_AUDIT.md), with the Legion 5 15ACH6A as the primary target.
+
+### Removed
+- All AI tools: ramalama, `ujust install-ai-tools` and LM Studio in Bazzite Portal (inherited from Bazzite DX), the local AI guide and the planned AI Hub. ROCm (general GPU compute) and onnxruntime (needed by FFmpeg for video playback) stay.
+
 ## 0.2.0: Foundation (2026-11-21)
 
 ### Added

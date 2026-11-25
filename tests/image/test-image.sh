@@ -34,6 +34,12 @@ if [[ -n "$EXPECTED_REF" ]]; then
     check "signature policy covers $repo" jq -e --arg r "$repo" '.transports.docker[$r][0].type == "sigstoreSigned"' /etc/containers/policy.json
     check "registries.d enables sigstore attachments" grep -q "$repo" /etc/containers/registries.d/nebula-os.yaml
 fi
+# bootc only enforces signatures (the installer's --enforce-container-sigpolicy) when the
+# global default is not insecureAcceptAnything. Universal Blue ships "reject"; catch a change.
+check "signature policy's global default is reject" jq -e '.default[0].type == "reject"' /etc/containers/policy.json
+# No hidden telemetry: Fedora's anonymous counter stays off (and presets keep it off).
+check "rpm-ostree-countme timer is disabled (exactly)" bash -c '[[ "$(systemctl is-enabled rpm-ostree-countme.timer 2>/dev/null)" == disabled ]]'
+check "a preset keeps rpm-ostree-countme disabled" grep -qx 'disable rpm-ostree-countme.timer' /usr/lib/systemd/system-preset/10-nebula-os.preset
 if [[ -n "$EXPECTED_REPO_URL" ]]; then
     check "os-release links to $EXPECTED_REPO_URL" \
         test "${HOME_URL:-}|${BUG_REPORT_URL:-}" = "$EXPECTED_REPO_URL|$EXPECTED_REPO_URL/issues"
@@ -58,6 +64,11 @@ check "nebula doctor --json is valid" bash -c 'nebula doctor --json | jq -e ".sc
 S=/usr/share/wayland-sessions
 check "Gaming Mode session is named" grep -qx 'Name=NebulaOS Gaming Mode' "$S/gamescope-session-steam.desktop"
 check "Work Mode session is named" grep -qx 'Name=NebulaOS Work Mode' "$S/gnome.desktop"
+check "the NebulaOS chooser session exists" grep -qx 'Exec=/usr/libexec/nebula-os-start' "$S/nebula-os.desktop"
+check "new users get the chooser session" grep -qx 'DefaultSession=nebula-os.desktop' /etc/gdm/custom.conf
+check "the chooser has what it needs (cage, GTK 4, libadwaita, evdev)" bash -c 'command -v cage && rpm -q gtk4 libadwaita python3-gobject python3-evdev'
+check "the chooser program compiles and imports its helper" bash -c 'python3 -I -c "import sys; sys.path.insert(0, \"/usr/lib/nebula-os\"); from nebula import modes; print(modes.gaming_support())" && python3 -m py_compile /usr/libexec/nebula-os-chooser'
+check "the session wrapper and chooser are executable" test -x /usr/libexec/nebula-os-start -a -x /usr/libexec/nebula-os-chooser
 check "Work Mode has no leftover translated names" bash -c "! grep -q '^Name\\[' $S/gnome.desktop"
 check "steamosctl is available for Bazzite's switching tools" test -x /usr/bin/steamosctl
 # This container has no system bus, so the saved mode cannot be read: both must fail, not guess.
@@ -66,6 +77,16 @@ check "steamosctl get-default-login-mode fails the same way" bash -c '! steamosc
 check "Steam's Switch to Desktop reaches /usr/lib/os-session-select" grep -q '/usr/lib/os-session-select' /usr/bin/steamos-session-select
 check "GDM profile reads the gdm database" bash -c 'grep -qs "system-db:gdm" /etc/dconf/profile/gdm /usr/share/dconf/profile/gdm'
 check "login screen message is compiled into the gdm database" grep -qa 'banner-message-text' /etc/dconf/db/gdm
+check "login screen shows the NebulaOS logo" bash -c 'grep -qa nebula-os-gdm-logo /etc/dconf/db/gdm && test -s /usr/share/pixmaps/nebula-os-gdm-logo.png'
+# The terminal welcome message must name this image and send bug reports to NebulaOS.
+check "welcome message shows the NebulaOS image" bash -c '! grep -q MOTD_IMAGE_NAME /usr/share/ublue-os/motd/template.md && grep -q "$(cat /usr/share/nebula-os/image-ref)" /usr/share/ublue-os/motd/template.md'
+check "welcome message reports issues to NebulaOS" bash -c '! grep -q issues.bazzite.gg /usr/share/ublue-os/motd/template.md'
+
+# --- No AI tools (removed by build_files/25-no-ai.sh) ----------------------------------------
+check "ramalama is not installed" bash -c '! rpm -q ramalama'
+check "ujust has no install-ai-tools" bash -c '! grep -qw install-ai-tools <<<"$(just --justfile /usr/share/ublue-os/justfile --summary)"'
+check "Bazzite Portal offers no LM Studio" bash -c '! grep -q lm-studio /usr/share/yafti/yafti.yml'
+check "video playback libraries are still there" rpm -q ffmpeg gstreamer1-plugin-libav
 
 # --- Desktop defaults ---------------------------------------------------------------------------
 favorites=$(gsettings get org.gnome.shell favorite-apps 2>/dev/null)
@@ -75,6 +96,31 @@ check "dock includes Switch to Gaming Mode" grep -q 'nebula-os-switch-to-gaming.
 check "default wallpaper is NebulaOS" bash -c 'gsettings get org.gnome.desktop.background picture-uri-dark 2>/dev/null | grep -q nebula-os'
 check "Switch to Gaming Mode launcher is valid" desktop-file-validate /usr/share/applications/nebula-os-switch-to-gaming.desktop
 check "NebulaOS logo is in the icon cache" grep -qa 'nebula-os-logo' /usr/share/icons/hicolor/icon-theme.cache
+check "Logo Menu extension is installed and enabled" bash -c '
+    test -d /usr/share/gnome-shell/extensions/logomenu@aryan_k &&
+    gsettings get org.gnome.shell enabled-extensions | grep -Fq "logomenu@aryan_k"'
+# The extension's schema is not installed system-wide, so the setting lives in dconf.
+check "Logo Menu uses the NebulaOS logo" bash -c '
+    test -s /usr/share/icons/hicolor/scalable/apps/nebula-os-logo.svg &&
+    grep -qa "nebula-os-logo.svg" /etc/dconf/db/distro &&
+    ! grep -q "logo-menu" /usr/share/glib-2.0/schemas/zz1-nebula-os.gschema.override'
+check "MangoHud preset uses the NebulaOS palette" bash -c '
+    grep -qx "background_color=090B14" /usr/share/nebula-os/MangoHud.conf &&
+    grep -qx "text_color=F1F5F9" /usr/share/nebula-os/MangoHud.conf &&
+    grep -qx "gpu_color=4263EB" /usr/share/nebula-os/MangoHud.conf &&
+    grep -qx "cpu_color=805AD5" /usr/share/nebula-os/MangoHud.conf &&
+    grep -qx "vram_color=22D3EE" /usr/share/nebula-os/MangoHud.conf'
+# Every dock app must exist after a fresh ISO install: shipped in the image, or installed
+# on first boot from the app bundle. Firefox was pinned but missing (VM install, 2026-11-22).
+check "every dock app is shipped or in the app bundle" bash -c '
+    missing=0
+    for app in $(gsettings get org.gnome.shell favorite-apps | tr -d "[],'"'"'"); do
+        [[ -e /usr/share/applications/$app ]] && continue
+        grep -qE "^${app%.desktop}([[:space:]]|#|\$)" /usr/share/nebula-os/flatpaks.list && continue
+        echo "  not shipped and not in the app bundle: $app"; missing=1
+    done
+    exit $missing'
+check "app bundle includes a web browser" grep -qE '^org\.mozilla\.firefox\b' /usr/share/nebula-os/flatpaks.list
 
 # --- ujust, Bazaar and the app list ---------------------------------------------------------------
 summary=$(just --justfile /usr/share/ublue-os/justfile --summary 2>/dev/null)

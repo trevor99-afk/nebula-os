@@ -30,6 +30,8 @@ ARG IMAGE_TAG="latest"
 ARG IMAGE_VERSION=""
 ARG GIT_SHA=""
 ARG BASE_DIGEST=""
+# The base image's name as recorded in the image (CI builds from a pinned digest of it).
+ARG BASE_IMAGE_NAME=""
 
 ### MODIFICATIONS
 ## All changes happen in build_files/build.sh and the numbered scripts next to it.

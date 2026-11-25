@@ -162,6 +162,57 @@ def _variant(value: object) -> object:
     return value.get("data") if isinstance(value, dict) and "data" in value else value
 
 
+def _parse_mutter_state(raw: str) -> Optional[Dict[str, Dict[str, object]]]:
+    try:
+        _serial, monitors, logical, _props = json.loads(raw)["data"]
+        primary = set()
+        scales: Dict[str, float] = {}
+        for item in logical:
+            _x, _y, scale, _transform, is_primary, specs = item[:6]
+            for spec in specs:
+                scales[spec[0]] = scale
+                if is_primary:
+                    primary.add(spec[0])
+        state: Dict[str, Dict[str, object]] = {}
+        for spec, modes, props in monitors:
+            connector, vendor, product, _serial_no = spec
+            mprops = {k: _variant(v) for k, v in props.items()}
+            current = None
+            variable_available = False
+            best_refresh = 0.0
+            for mode in modes:
+                _id, width, height, refresh, _pref_scale, _scales, mode_props = mode[:7]
+                mp = {k: _variant(v) for k, v in mode_props.items()}
+                variable = mp.get("refresh-rate-mode") == "variable"
+                variable_available = variable_available or variable
+                best_refresh = max(best_refresh, float(refresh))
+                if mp.get("is-current"):
+                    current = {"width": width, "height": height, "refresh_hz": round(float(refresh), 3), "variable": variable}
+            color_mode = mprops.get("color-mode")
+            supported = mprops.get("supported-color-modes") or []
+            state[connector] = {
+                "vendor": vendor,
+                "product": product,
+                "display_name": mprops.get("display-name"),
+                "builtin": bool(mprops.get("is-builtin")),
+                "primary": connector in primary,
+                "scale": scales.get(connector),
+                "current_mode": current,
+                "max_refresh_hz": round(best_refresh, 3) if best_refresh else None,
+                "vrr_modes_available": variable_available,
+                "min_refresh_hz": mprops.get("min-refresh-rate"),
+                "color_mode": MUTTER_COLOR_MODES.get(color_mode, color_mode),
+                "supported_color_modes": [MUTTER_COLOR_MODES.get(m, m) for m in supported],
+                "hdr_mode_available": MUTTER_HDR_MODE in supported,
+                "hdr_enabled": color_mode == MUTTER_HDR_MODE,
+            }
+        return state
+    except (ValueError, KeyError, TypeError, IndexError, OverflowError, AttributeError):
+        # Mutter's versioned D-Bus payload is external input. A shape change or
+        # partial reply should leave compositor data unknown, not break `nebula hw`.
+        return None
+
+
 def mutter_state(runner: Runner = run) -> Optional[Dict[str, Dict[str, object]]]:
     """{connector: state} from Mutter's DisplayConfig, or None outside GNOME."""
     res = runner(
@@ -169,54 +220,7 @@ def mutter_state(runner: Runner = run) -> Optional[Dict[str, Dict[str, object]]]
          "/org/gnome/Mutter/DisplayConfig", "org.gnome.Mutter.DisplayConfig", "GetCurrentState"],
         timeout=5,
     )
-    if not res.ok:
-        return None
-    try:
-        _serial, monitors, logical, _props = json.loads(res.stdout)["data"]
-    except (ValueError, KeyError, TypeError):
-        return None
-    primary = set()
-    scales: Dict[str, float] = {}
-    for item in logical:
-        _x, _y, scale, _transform, is_primary, specs = item[:6]
-        for spec in specs:
-            scales[spec[0]] = scale
-            if is_primary:
-                primary.add(spec[0])
-    state: Dict[str, Dict[str, object]] = {}
-    for spec, modes, props in monitors:
-        connector, vendor, product, _serial_no = spec
-        mprops = {k: _variant(v) for k, v in props.items()}
-        current = None
-        variable_available = False
-        best_refresh = 0.0
-        for mode in modes:
-            _id, width, height, refresh, _pref_scale, _scales, mode_props = mode[:7]
-            mp = {k: _variant(v) for k, v in mode_props.items()}
-            variable = mp.get("refresh-rate-mode") == "variable"
-            variable_available = variable_available or variable
-            best_refresh = max(best_refresh, float(refresh))
-            if mp.get("is-current"):
-                current = {"width": width, "height": height, "refresh_hz": round(float(refresh), 3), "variable": variable}
-        color_mode = mprops.get("color-mode")
-        supported = mprops.get("supported-color-modes") or []
-        state[connector] = {
-            "vendor": vendor,
-            "product": product,
-            "display_name": mprops.get("display-name"),
-            "builtin": bool(mprops.get("is-builtin")),
-            "primary": connector in primary,
-            "scale": scales.get(connector),
-            "current_mode": current,
-            "max_refresh_hz": round(best_refresh, 3) if best_refresh else None,
-            "vrr_modes_available": variable_available,
-            "min_refresh_hz": mprops.get("min-refresh-rate"),
-            "color_mode": MUTTER_COLOR_MODES.get(color_mode, color_mode),
-            "supported_color_modes": [MUTTER_COLOR_MODES.get(m, m) for m in supported],
-            "hdr_mode_available": MUTTER_HDR_MODE in supported,
-            "hdr_enabled": color_mode == MUTTER_HDR_MODE,
-        }
-    return state
+    return _parse_mutter_state(res.stdout) if res.ok else None
 
 
 # --- Connectors ---------------------------------------------------------------------

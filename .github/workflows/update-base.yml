@@ -1,0 +1,73 @@
+---
+name: Update pinned Bazzite base images
+
+# Builds use the reviewed digests in base-images.lock (see build.yml). Once a day this checks
+# whether Bazzite published newer :stable images, verifies their Universal Blue signatures and,
+# if they changed, opens a pull request to dev with the new digests for review and starts a validation
+# build of that branch. Scheduled workflows run from the default branch: this one starts working once it
+# is on main.
+on:
+  schedule:
+    - cron: '35 9 * * *'  # 09:35 UTC, before the daily build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: write  # start the validation build (pull requests opened by GITHUB_TOKEN start no workflows)
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: dev
+          persist-credentials: false
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+        with:
+          cosign-release: 'v3.1.4'
+
+      - name: Resolve and verify the newest :stable digests
+        id: resolve
+        run: |
+          changed=false
+          # Read a copy: the loop edits base-images.lock itself.
+          orig=$(mktemp)
+          cp base-images.lock "$orig"
+          while read -r line; do
+            [[ "$line" =~ ^([^#@][^@]*)@(sha256:[0-9a-f]{64})$ ]] || continue
+            repo="${BASH_REMATCH[1]}"; old="${BASH_REMATCH[2]}"
+            new=$(skopeo inspect --format '{{.Digest}}' "docker://${repo}:stable")
+            [[ "$new" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::could not resolve ${repo}:stable"; exit 1; }
+            if [[ "$new" != "$old" ]]; then
+              cosign verify --new-bundle-format=false --key keys/ublue-os.pub "${repo}@${new}" > /dev/null
+              echo "${repo}: ${old} -> ${new} (signature verified)"
+              sed -i "s|^${repo}@${old}\$|${repo}@${new}|" base-images.lock
+              changed=true
+            fi
+          done < "$orig"
+          rm -f "$orig"
+          echo "changed=${changed}" >> "${GITHUB_OUTPUT}"
+
+      - name: Open a pull request with the new digests
+        if: steps.resolve.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="update-base-$(date -u +%Y%m%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit -am "Update pinned Bazzite base images (signatures verified)"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
+          # A pull request opened with GITHUB_TOKEN triggers no workflows, so start the full build and
+          # image tests on this branch explicitly (a branch other than main/dev never publishes).
+          gh workflow run build.yml --ref "$branch"
+          gh pr create --base dev --head "$branch" --title "Update pinned Bazzite base images" \
+            --body "New Bazzite :stable digests, each verified with Universal Blue's key (keys/ublue-os.pub). A validation build (build + image tests, no publishing) was started on this branch: check it under Actions › Build container image before merging."

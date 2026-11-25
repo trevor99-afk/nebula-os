@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=NebulaOS (choose your mode after login)
+Comment=A full-screen menu after you log in: Gaming Mode or Work Mode
+Exec=/usr/libexec/nebula-os-start
+TryExec=/usr/libexec/nebula-os-start
+Type=Application
+DesktopNames=NebulaOS

@@ -6,7 +6,9 @@
 # nebula-os-switch-side.
 set -euo pipefail
 
+SWITCH=${NEBULA_SWITCH_SIDE:-/usr/libexec/nebula-os-switch-side}
+
 case "${1:-gamescope}" in
-    gamescope) exec /usr/libexec/nebula-os-switch-side gaming --now ;;
-    *) exec /usr/libexec/nebula-os-switch-side work --now ;;
+    gamescope) exec "$SWITCH" gaming --now ;;
+    *) exec "$SWITCH" work --now ;;
 esac

@@ -1,7 +1,7 @@
 import unittest
 
 import helpers  # noqa: F401  (sets the import path)
-from nebula.capabilities import Capability
+from nebula.capabilities import Capability, Note
 
 
 class CapabilityLevels(unittest.TestCase):
@@ -35,10 +35,30 @@ class CapabilityLevels(unittest.TestCase):
         c = Capability("p", "P", driver=True, available=True, enabled=True)
         self.assertEqual(c.status(), "enabled (not verified)")
 
+    def test_failed_verification_is_distinct_from_unknown(self):
+        c = Capability("p", "P", driver=True, available=True, enabled=True, verified=False)
+        self.assertEqual(c.level(), "enabled")
+        self.assertEqual(c.status(), "enabled, verification failed")
+
+    def test_hardware_capable_without_a_driver(self):
+        c = Capability("hdr", "HDR", hardware=True, driver=False)
+        self.assertEqual(c.status(), "hardware capable, no working driver")
+
     def test_to_dict(self):
         d = Capability("x", "X", hardware=True, evidence=["e"]).to_dict()
         self.assertEqual(d["level"], "hardware")
         self.assertEqual(d["evidence"], ["e"])
+
+    def test_to_dict_does_not_share_evidence_list(self):
+        c = Capability("x", "X", evidence=["source"])
+        c.to_dict()["evidence"].append("mutated")
+        self.assertEqual(c.evidence, ["source"])
+
+
+class Notes(unittest.TestCase):
+    def test_optional_subject_is_kept_in_the_json_shape(self):
+        self.assertEqual(Note("warn", "Check the GPU").to_dict(),
+                         {"level": "warn", "subject": None, "message": "Check the GPU"})
 
 
 if __name__ == "__main__":

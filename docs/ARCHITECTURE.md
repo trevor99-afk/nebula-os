@@ -9,7 +9,7 @@ flowchart TB
     subgraph Base["Inherited base: ghcr.io/ublue-os/bazzite-dx-gnome"]
         F["Fedora Atomic (bootc, rpm-ostree, SELinux, systemd)"]
         B["Bazzite: kernel, Mesa, Steam, gamescope sessions, MangoHud, CardWire, tuned, uupd, Bazaar, Bazzite Portal, ujust"]
-        D["Bazzite DX: VS Code, Docker, Podman, distrobox, virt-manager, ramalama, GDM login"]
+        D["Bazzite DX: VS Code, Docker, Podman, distrobox, virt-manager, GDM login"]
         F --> B --> D
     end
     subgraph Nebula["NebulaOS layer (this repository)"]
@@ -21,7 +21,7 @@ flowchart TB
     end
     subgraph Front["Front ends"]
         CLI["nebula CLI and ujust nebula-* (available)"]
-        GUI["Nebula Control Center, Gaming Optimizer, Display Lab, Dev Hub, AI Hub (planned)"]
+        GUI["Nebula Control Center, Gaming Optimizer, Display Lab, Dev Hub (planned)"]
     end
     D --> Nebula
     T --> CLI
@@ -38,17 +38,19 @@ NebulaOS changes the base only through:
 ```mermaid
 flowchart LR
     PR["Pull request"] --> C
-    Dev["push: dev"] --> C
-    Main["push: main / daily schedule"] --> C
-    C["checks: just syntax, shellcheck, hadolint, actionlint, config validation, unit tests"] --> BLD
+    Dev["image-changing push: dev"] --> C
+    Main["image-changing push: main / daily schedule"] --> C
+    C["checks: just check, shellcheck, hadolint, actionlint, config validation, unit tests"] --> BLD
     BLD["build edition (nebula-os, nebula-os-nvidia)"] --> TST["image tests"]
-    TST --> RC["rpm-ostree rechunk"]
-    RC -->|PR: stop here| X(("no publish"))
+    TST --> PUB{"publish run?"}
+    PUB -->|PR: stop here| X(("no publish"))
+    PUB -->|main/dev publish| RC["rpm-ostree rechunk"]
     RC --> P1["push dated + commit tags"]
     P1 --> SG["cosign sign by digest"] --> V["cosign verify"] --> P2["move channel tag: testing (dev) or latest (main)"]
 ```
 
 - Base images: `bazzite-dx-gnome:stable` (AMD/Intel) and `bazzite-dx-nvidia-gnome:stable` (NVIDIA). The resolved base digest is recorded in image labels and `/usr/share/nebula-os/build-info.json`.
+- Pushes that change only Markdown or files under `docs/` are ignored. Pull requests still build and test images but stop before publishing; a manual workflow run on `main` or `dev` publishes to that branch's channel.
 - A weekly Trivy scan uploads results to the repository's Security tab and keeps a CycloneDX SBOM.
 - Disk images (ISO and qcow2) are built on demand with bootc-image-builder.
 
@@ -61,21 +63,39 @@ sequenceDiagram
     participant U as User
     participant G as GDM login screen
     participant A as AccountsService
+    participant P as Per-user mode state
+    participant C as NebulaOS wrapper and chooser
     participant W as Work Mode (GNOME)
     participant S as Gaming Mode (Steam in gamescope)
-    U->>G: select user, pick mode (gear button), password
-    G->>A: remember session
-    G->>W: "NebulaOS Work Mode" (session gnome)
-    W->>A: "Switch to Gaming Mode": SetSession(gamescope-session-steam)
-    W->>G: log out
-    G->>S: "NebulaOS Gaming Mode" (session gamescope-session-steam)
-    S->>A: Steam "Switch to Desktop" → /usr/lib/os-session-select → SetSession(gnome)
-    S->>G: steam -shutdown ends the session
+    U->>G: select user and sign in
+    alt chooser session selected
+        G->>C: start nebula-os session
+        C->>U: show Gaming, Work and power choices
+        U->>C: choose a mode
+        alt Work Mode
+            C->>W: start GNOME session command
+        else Gaming Mode
+            C->>S: start gamescope-session-plus command
+        end
+    else direct session selected from the gear menu
+        G->>A: remember gnome or gamescope-session-steam
+        alt Work Mode
+            G->>W: start Work Mode
+        else Gaming Mode
+            G->>S: start Gaming Mode
+        end
+    end
+    W->>P: switch request writes a one-time next-mode choice
+    S->>P: Steam Switch to Desktop writes a one-time Work choice
+    P->>C: selected mode exits; wrapper starts the requested mode
+    C->>G: logout returns to the login screen
 ```
 
-- Session IDs stay Bazzite's; only the names on the login screen change.
-- Everything goes through AccountsService. A user may change their own session preference without a password (polkit `change-own-user-data`), so no privileged helper is needed.
-- `/usr/bin/steamosctl` is a NebulaOS compatibility shim, installed only when the base has none, so Bazzite's own buttons and `ujust` recipes keep working on GDM.
+New accounts use the full-screen chooser by default. `ujust nebula-mode chooser` enables it for an account with a saved session. `ujust nebula-mode chooser-off` selects the last mode chosen through the chooser, or Work Mode if there is no saved choice. The gear menu on GDM remains available for direct access to the Bazzite sessions.
+
+When the chooser starts a mode, the wrapper reads that mode's `.desktop` entry, exports its desktop variables and imports the selected desktop names into the systemd user manager. It clears stale display variables and portal services before each handoff. The chooser runs in Cage with GTK portal startup disabled; when it exits, the selected GNOME or gamescope session command starts in the same login. The logind `Desktop` property and D-Bus restart timing still need verification in a booted image; see [the gaming audit](BACKEND_GAMING_AUDIT.md#full-screen-chooser-handoff-not-verified-in-a-booted-image).
+
+Direct GDM logins use the original Bazzite session IDs; only the displayed names change. With the chooser enabled, switching modes from inside a mode writes a one-time choice and exits that mode so the wrapper can start the other one without a new login. A user may change their saved session without a password through AccountsService (polkit `change-own-user-data`). `/usr/bin/steamosctl` is a NebulaOS compatibility shim only when the base image does not provide its own binary.
 
 ### The `nebula` backend
 
@@ -89,7 +109,7 @@ sequenceDiagram
   hardware.py      the full hardware report and compatibility notes
   doctor.py        System Doctor checks
   updates.py       deployments, update check, apply and rollback with confirmation
-  cli.py           text and --json output
+  cli.py           text output; --json for status, hw, doctor, update check and update history
 ```
 
 Rules every module follows:
@@ -116,7 +136,7 @@ Each level is `true`, `false` or `null` (unknown) with evidence. Front ends show
 ### Updates and recovery
 
 - `uupd` (inherited) checks and applies updates automatically. The new deployment takes effect at the next restart.
-- The previous deployment stays in the boot menu. `sudo bootc rollback` or `nebula update rollback` makes it the default again.
+- The previous deployment stays in the boot menu. `sudo bootc rollback` or `nebula update rollback` makes it the default for the next restart; restart to boot it.
 - With `ujust nebula-enable-signed-updates`, the system follows `ostree-image-signed:docker://ghcr.io/<owner>/nebula-os:<channel>` and rejects images that are not signed with the NebulaOS key (`/etc/pki/containers/nebula-os.pub`).
 
 ## Data and privacy

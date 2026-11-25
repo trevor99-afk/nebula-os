@@ -18,6 +18,7 @@ from typing import Dict, List, Optional
 
 from . import __version__, doctor, gpu as gpu_mod, hardware, sysinfo, updates
 from .util import human_bytes, human_duration, run
+from .work import cli as work_cli
 
 _STYLE = {"ok": ("✔", "32"), "info": ("ℹ", "36"), "warn": ("⚠", "33"), "fail": ("✖", "31"), "skip": ("–", "90")}
 _SHORT_LABELS = {"vulkan": "Vulkan", "opengl": "OpenGL", "vaapi": "Video accel.", "gpu-power": "Power mgmt",
@@ -201,7 +202,7 @@ def print_doctor(results: List[doctor.Check]) -> None:
     print({"ok": "Everything looks good.", "warn": "Some things need attention.", "fail": "Problems found."}[status])
 
 
-def write_report(path: str, results: List[doctor.Check], include_logs: bool) -> None:
+def write_report(path: str, results: List[doctor.Check], include_logs: bool, quiet: bool = False) -> None:
     data = {
         "schema": "nebula.doctor-report/v1",
         "created": time.strftime("%Y-%m-%d %H:%M:%S %Z"),
@@ -232,8 +233,9 @@ def write_report(path: str, results: List[doctor.Check], include_logs: bool) -> 
         except FileNotFoundError:
             pass
         raise
-    print(f"Report written to {path}.")
-    if include_logs:
+    if not quiet:
+        print(f"Report written to {path}.")
+    if include_logs and not quiet:
         print("It contains this boot's error log, which can include names of devices, networks and users. "
               "Read it before sharing it.")
 
@@ -260,6 +262,7 @@ def build_parser() -> argparse.ArgumentParser:
     apply_p.add_argument("--yes", action="store_true", help="do not ask for confirmation")
     rb = upd_sub.add_parser("rollback", help="boot the previous deployment next time (asks first)")
     rb.add_argument("--yes", action="store_true", help="do not ask for confirmation")
+    work_cli.add_parser(sub, common)
     return parser
 
 
@@ -286,7 +289,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             print_doctor(results)
         if args.report:
             try:
-                write_report(args.report, results, args.include_logs)
+                write_report(args.report, results, args.include_logs, quiet=args.json)
             except OSError as err:
                 print(f"Could not write the report to {args.report}: {err.strerror or err}", file=sys.stderr)
                 return 2
@@ -314,6 +317,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             return updates.apply(assume_yes=args.yes)
         if args.action == "rollback":
             return updates.rollback(info, assume_yes=args.yes)
+    if args.command == "work":
+        return work_cli.run(args)
     return 2
 
 

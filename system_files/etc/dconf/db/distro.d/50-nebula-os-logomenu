@@ -1,0 +1,7 @@
+# NebulaOS logo in the top-left Logo Menu (Bazzite's logomenu@aryan_k extension).
+# Its settings schema lives inside the extension, not in /usr/share/glib-2.0/schemas,
+# so it is set here in dconf, like Bazzite's own defaults in 00-bazzite-desktop-silverblue-global
+# (a gschema override would fail the build's strict schema check). Read after Bazzite's files.
+[org/gnome/shell/extensions/Logo-menu]
+use-custom-icon=true
+custom-icon-path='/usr/share/icons/hicolor/scalable/apps/nebula-os-logo.svg'

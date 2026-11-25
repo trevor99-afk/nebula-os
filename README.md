@@ -4,11 +4,11 @@
 
 # NebulaOS
 
-**One operating system. Two worlds.** A Linux distribution with a **Gaming Mode** and a **Work Mode**: you choose one every time you log in.
+**One operating system. Two worlds.** A Linux distribution with a **Gaming Mode** and a **Work Mode**. New accounts see a full-screen chooser after login; the login screen's gear menu can still start either mode directly.
 
 NebulaOS is built on [Bazzite DX](https://dev.bazzite.gg), so it keeps everything Bazzite provides (Steam, Proton, Gamescope, MangoHud, a gaming-tuned kernel, fresh graphics drivers, automatic updates and one-step rollback). On top, it adds its own tools and identity, and does not rebuild what Bazzite already does well.
 
-> **Status:** testing. The image builds, is signed and passes 43 automated image tests. It has not yet been booted on real hardware. See [what is verified](docs/NEBULAOS_TECHNICAL_AUDIT.md#unverified-needs-a-real-boot).
+> **Status:** testing. The image builds, is signed and passes the automated image tests. It has been installed and tested in a virtual machine (GNOME Boxes), but not yet on real hardware. See [what is verified](docs/NEBULAOS_TECHNICAL_AUDIT.md#unverified-needs-a-real-boot).
 
 ## The two modes
 
@@ -19,7 +19,7 @@ NebulaOS is built on [Bazzite DX](https://dev.bazzite.gg), so it keeps everythin
 | App store | Steam store | **Bazaar**, with a NebulaOS *Development & Work* section |
 | Switch | Steam menu › Power › **Switch to Desktop** | **Switch to Gaming Mode** in the dock |
 
-On the login screen: select your user, click the **gear button** and pick a mode. Your last choice is remembered. `ujust nebula-mode gaming` or `ujust nebula-mode work` sets it from a terminal.
+The chooser highlights the last mode selected through the chooser and offers Gaming Mode, Work Mode, log out, restart and power off. Use a mouse, arrow keys and Enter, or a controller's D-pad/left stick and A button. Accounts that already have a saved login mode keep it; run `ujust nebula-mode chooser` to show the chooser after each login. The login screen's **gear menu** always offers the direct Gaming Mode and Work Mode sessions.
 
 ## What NebulaOS adds
 
@@ -27,28 +27,31 @@ On the login screen: select your user, click the **gear button** and pick a mode
   - `nebula status`: live CPU, GPU, memory, storage, network, temperatures, power profile, updates and health
   - `nebula hw`: **Hardware Detection Engine.** GPUs (AMD, Intel, NVIDIA backends), architecture, Vulkan, OpenGL and video acceleration verified by real probes, hybrid graphics, and each display's mode, refresh range, **VRR** and **HDR**. Every feature is reported at five levels: hardware, driver, available, enabled, verified.
   - `nebula doctor`: **System Doctor.** 12 checks with suggested fixes; it never changes anything.
-  - `nebula update check|history|apply|rollback`: updates, with confirmation before any change
-  - Every command has `--json` output.
-- **App bundle** from Flathub: Heroic, Bottles, OBS Studio, Vesktop, MangoJuice, RetroArch, Dolphin, PCSX2.
+  - `nebula update check|history|apply|rollback`: update management; `apply` and `rollback` ask before changing the system
+  - `--json` is available for `status`, `hw`, `doctor`, `update check` and `update history`. `apply` and `rollback` are interactive text commands.
+- **App bundle** from Flathub: everyday apps (Firefox, Text Editor, Calculator, Image Viewer, Document Viewer, Flatseal, Extension Manager) plus Heroic, Bottles, OBS Studio, Vesktop, MangoJuice, RetroArch, Dolphin, PCSX2.
 - **FPS overlay preset** (`ujust nebula-fps-overlay on`).
 - **Identity:** name in the boot menu and Settings › About, logo, wallpapers, login mode names.
 - **Signed images** with your own key, verified in CI before publication.
 
-The planned **Nebula Control Center, Gaming Optimizer, Display Lab, Dev Hub and AI Hub** are on the [roadmap](docs/ROADMAP.md).
+The planned **Nebula Control Center, Gaming Optimizer, Display Lab and Dev Hub** are on the [roadmap](docs/ROADMAP.md).
 
 ## Install
 
-Install [Bazzite](https://bazzite.gg) first, then switch to NebulaOS. Verify the image signature before switching:
+**One step, from the ISO:** NebulaOS installs directly, with Bazzite already inside (Steam, drivers, Gaming Mode, updates). Download the installer ISO from **Actions › Build disk images** (artifact `nebula-os-latest-anaconda-iso`), write it to a USB stick and boot from it. The ISO installs successfully in a virtual machine; it has not been installed on real hardware yet, so try it in GNOME Boxes first.
+
+**Already on Bazzite?** Switch to the exact image you verified, then turn on signed updates:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/trevor99-afk/nebula-os/main/cosign.pub
-cosign verify --key cosign.pub ghcr.io/trevor99-afk/nebula-os:latest
-sudo bootc switch ghcr.io/trevor99-afk/nebula-os:latest   # NVIDIA: nebula-os-nvidia
-systemctl reboot
+IMAGE=ghcr.io/trevor99-afk/nebula-os   # NVIDIA: ghcr.io/trevor99-afk/nebula-os-nvidia
+DIGEST=$(skopeo inspect --format '{{.Digest}}' "docker://$IMAGE:latest")
+cosign verify --key cosign.pub "$IMAGE@$DIGEST"
+sudo bootc switch "$IMAGE@$DIGEST" && systemctl reboot
 ujust nebula-enable-signed-updates                        # after the reboot, then reboot again
 ```
 
-Your files and apps stay; the previous system remains in the boot menu. Full guide: [docs/INSTALLATION.md](docs/INSTALLATION.md).
+Full guide: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 | Edition | Image |
 | --- | --- |
@@ -61,7 +64,9 @@ Channels: `:latest` (stable, branch `main`) and `:testing` (branch `dev`).
 
 | Command | What it does |
 | --- | --- |
-| `ujust nebula-mode gaming` / `work` | Choose the mode started at login (add `now` to switch right away) |
+| `ujust nebula-mode gaming` / `work` | Select that mode for the next login; while the chooser is enabled, skip it once (add `now` to switch immediately) |
+| `ujust nebula-mode chooser` | Show the chooser after each login |
+| `ujust nebula-mode chooser-off` | Turn off the chooser; at the next login, start the last mode selected through the chooser (Work Mode if there is no saved choice) |
 | `ujust nebula-info` | Version, live status and the app bundle |
 | `ujust nebula-doctor` | Check the system and suggest fixes |
 | `ujust nebula-hw` | Hardware and display capability report |
@@ -70,11 +75,17 @@ Channels: `:latest` (stable, branch `main`) and `:testing` (branch `dev`).
 | `ujust nebula-enable-signed-updates` | Only accept updates signed with the NebulaOS key |
 | `ujust nebula-switch-to-bazzite` | Go back to stock Bazzite DX |
 
-Updates install automatically in the background (Bazzite's updater) and apply on the next restart.
+Updates download in the background and apply on the next restart. For the exact status, use `nebula update check` and `nebula update history`.
+
+## Update and rollback
+
+`nebula update apply` asks before downloading and staging the newest image. Restart to boot it. If the new deployment causes a problem, run `nebula update rollback`, confirm the previous deployment shown, and restart; the previous deployment should boot and the newer one remains available in the boot menu. If NebulaOS does not start, choose the previous deployment from the boot menu.
+
+This recovery route is documented but the full NebulaOS update and rollback journey has not yet been exercised in a VM or on hardware. Maintainers should record the image digest and test target with the [release validation checklist](docs/RELEASE_PROCESS.md#per-release-validation-checklist).
 
 ## Documentation
 
-[Installation](docs/INSTALLATION.md) · [Hardware compatibility](docs/HARDWARE_COMPATIBILITY.md) · [Gaming](docs/GAMING.md) · [Development](docs/DEVELOPMENT.md) · [AI](docs/AI.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Technical audit](docs/NEBULAOS_TECHNICAL_AUDIT.md) · [Roadmap](docs/ROADMAP.md) · [Release process](docs/RELEASE_PROCESS.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+[Installation](docs/INSTALLATION.md) · [Hardware compatibility](docs/HARDWARE_COMPATIBILITY.md) · [Gaming](docs/GAMING.md) · [Development](docs/DEVELOPMENT.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Technical audit](docs/NEBULAOS_TECHNICAL_AUDIT.md) · [Backend and Gaming Mode audit](docs/BACKEND_GAMING_AUDIT.md) · [Roadmap](docs/ROADMAP.md) · [Release process](docs/RELEASE_PROCESS.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 ## Building it yourself
 
@@ -88,7 +99,8 @@ Settings (name, GitHub account and repository, base image) live in `image-templa
 ## Known limitations
 
 - Not yet booted on real hardware; the ISO installer is untested.
-- Steam Gaming Mode can show a black screen on some dual-GPU laptops. Work Mode always works.
+- The chooser's keyboard/controller navigation, controller permissions, small-screen layout, and in-session mode switching are unverified in a built image and on hardware.
+- Steam Gaming Mode can show a black screen on some dual-GPU laptops. The Work Mode recovery path is unverified in a built image and on hardware.
 - The NVIDIA edition is untested on NVIDIA hardware.
 
 ## Credits

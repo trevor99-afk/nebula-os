@@ -30,7 +30,9 @@ on:
 
 env:
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"  # do not edit
-  BIB_IMAGE: "quay.io/centos-bootc/bootc-image-builder:latest"
+  # Pinned by digest (it runs --privileged): the tag "latest" as of 2026-11-23. Update deliberately:
+  #   skopeo inspect --format "{{.Digest}}" docker://quay.io/centos-bootc/bootc-image-builder:latest
+  BIB_IMAGE: "quay.io/centos-bootc/bootc-image-builder@sha256:dab86ee6b46dcade411b37f4e70b07d93b6a06da0dbfec6fe89247a220e0d9f8"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -66,29 +68,83 @@ jobs:
 
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@695eb75bc387dbcd9685a8e72d23439d8686cba6
-        with:
-          remove-codeql: true
 
       - name: Free disk space
         run: df -h /
 
-      - name: Build disk images
-        id: build
-        uses: osbuild/bootc-image-builder-action@8661cd3832544ad68c12dcde8681b13ab0f56a8d # main
+      # Ubuntu's AppArmor confines bubblewrap, which the image builder (osbuild)
+      # uses as its sandbox, and that blocks the sandbox's mounts ("permission
+      # denied", runs 45018113629 and 45019110928). Unload AppArmor for this job:
+      # GitHub discards the runner afterwards, and the user's system is not involved.
+      - name: Allow the image builder's sandbox
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo aa-teardown || sudo systemctl stop apparmor || true
+
+      # Only a NebulaOS image whose signature verifies with cosign.pub goes into a disk image,
+      # and it is used by that exact digest from here on.
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
         with:
-          builder-image: ${{ env.BIB_IMAGE }}
-          config-file: ${{ matrix.disk-type == 'anaconda-iso' && './disk_config/iso.toml' || './disk_config/disk.toml' }}
-          image: ${{ env.IMAGE_REGISTRY }}/${{ inputs.image }}:${{ inputs.tag }}
-          chown: ${{ env.USER_UID }}:${{ env.USER_GID }}
-          types: ${{ matrix.disk-type }}
-          additional-args: --use-librepo=True
+          cosign-release: 'v3.1.4'
+
+      - name: Verify the NebulaOS source image
+        env:
+          SOURCE_TAG: ${{ env.IMAGE_REGISTRY }}/${{ inputs.image }}:${{ inputs.tag }}
+        run: |
+          digest=$(skopeo inspect --format '{{.Digest}}' "docker://${SOURCE_TAG}")
+          cosign verify --key cosign.pub "${SOURCE_TAG%:*}@${digest}" > /dev/null
+          echo "Verified ${SOURCE_TAG} = ${digest} with cosign.pub."
+          echo "SOURCE_DIGEST=${digest}" >> "${GITHUB_ENV}"
+
+      - name: Prepare the source image
+        env:
+          SOURCE_IMAGE: ${{ env.IMAGE_REGISTRY }}/${{ inputs.image }}:${{ inputs.tag }}
+          DISK_TYPE: ${{ matrix.disk-type }}
+        run: |
+          sudo podman pull "${SOURCE_IMAGE%:*}@${SOURCE_DIGEST}"
+          sudo podman tag "${SOURCE_IMAGE%:*}@${SOURCE_DIGEST}" "${SOURCE_IMAGE}"
+          if [[ "${DISK_TYPE}" == anaconda-iso ]]; then
+            # The builder only reads /etc/yum.repos.d; see disk_config/installer.Containerfile.
+            sudo podman build --pull=never --build-arg "BASE_IMAGE=${SOURCE_IMAGE}" \
+              -t localhost/nebula-installer-source:latest -f disk_config/installer.Containerfile disk_config
+            echo "BUILD_IMAGE=localhost/nebula-installer-source:latest" >> "${GITHUB_ENV}"
+            echo "CONFIG_FILE=disk_config/iso.toml" >> "${GITHUB_ENV}"
+          else
+            echo "BUILD_IMAGE=${SOURCE_IMAGE}" >> "${GITHUB_ENV}"
+            echo "CONFIG_FILE=disk_config/disk.toml" >> "${GITHUB_ENV}"
+          fi
+
+      - name: Build disk images
+        env:
+          DISK_TYPE: ${{ matrix.disk-type }}
+        run: |
+          mkdir -p output
+          sudo podman run --rm --privileged --security-opt label=type:unconfined_t \
+            -v /var/lib/containers/storage:/var/lib/containers/storage \
+            -v ./output:/output -v "./${CONFIG_FILE}:/config.toml:ro" \
+            "${BIB_IMAGE}" --type "${DISK_TYPE}" --use-librepo=True "${BUILD_IMAGE}"
+          sudo chown -R "${USER_UID}:${USER_GID}" output
+          # Provenance: which builder and which source image produced these files.
+          {
+            echo "builder: ${BIB_IMAGE}"
+            echo "builder image id: $(sudo podman image inspect --format '{{.Id}}' "${BIB_IMAGE}")"
+            echo "source image: ${IMAGE_REGISTRY}/${{ inputs.image }}:${{ inputs.tag }} @ ${SOURCE_DIGEST} (signature verified)"
+            echo "workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } > output/PROVENANCE.txt
+          cat output/PROVENANCE.txt
+          find output -type f -printf '%p %s bytes\n'
+
+      - name: Show kernel denials (on failure)
+        if: failure()
+        run: sudo dmesg | grep -iE "apparmor|denied|audit" | tail -n 30 || true
 
       - name: Upload disk images and Checksum to Job Artifacts
         if: inputs.upload-to-s3 != true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ inputs.image }}-${{ inputs.tag }}-${{ matrix.disk-type }}
-          path: ${{ steps.build.outputs.output-directory }}
+          path: ./output
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
@@ -104,9 +160,61 @@ jobs:
           RCLONE_CONFIG_S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
           RCLONE_CONFIG_S3_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
-          SOURCE_DIR: ${{ steps.build.outputs.output-directory }}
+          SOURCE_DIR: ./output
           BUCKET: ${{ secrets.S3_BUCKET_NAME }}
         run: |
           sudo apt-get update
           sudo apt-get install -y rclone
           rclone copy "${SOURCE_DIR}" "S3:${BUCKET}"
+
+  boot-test:
+    name: Boot qcow2 and check GDM
+    needs: build
+    if: inputs.upload-to-s3 != true
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # The qcow2 is about 7 GB, and QEMU's snapshot overlay grows next to it.
+      - name: Maximize build space
+        uses: ublue-os/remove-unwanted-software@695eb75bc387dbcd9685a8e72d23439d8686cba6
+
+      - name: Download qcow2 artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ inputs.image }}-${{ inputs.tag }}-qcow2
+          path: boot-artifact
+
+      - name: Install QEMU and OCR
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 ovmf tesseract-ocr
+
+      # The runner has /dev/kvm, but only root and the kvm group can open it
+      # (run 45043945536). Open it to the runner user; GitHub discards the runner afterwards.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: Boot image and check login screen
+        run: bash tests/vm/ci-boot.sh boot-artifact boot-results
+
+      - name: Upload boot diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: boot-test-diagnostics-${{ inputs.image }}-${{ inputs.tag }}
+          path: boot-results
+          if-no-files-found: warn
+          retention-days: 7
